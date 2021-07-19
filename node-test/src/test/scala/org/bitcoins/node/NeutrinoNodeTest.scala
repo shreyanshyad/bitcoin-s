@@ -2,9 +2,10 @@ package org.bitcoins.node
 
 import akka.actor.Cancellable
 import org.bitcoins.crypto.DoubleSha256DigestBE
+import org.bitcoins.rpc.client.v21.BitcoindV21RpcClient
 import org.bitcoins.server.BitcoinSAppConfig
 import org.bitcoins.testkit.BitcoinSTestAppConfig
-import org.bitcoins.testkit.node.fixture.{NeutrinoNodeConnectedWithBitcoinds}
+import org.bitcoins.testkit.node.fixture.NeutrinoNodeConnectedWithBitcoinds
 import org.bitcoins.testkit.node.{NodeTestUtil, NodeTestWithCachedBitcoindPair}
 import org.scalatest.{FutureOutcome, Outcome}
 

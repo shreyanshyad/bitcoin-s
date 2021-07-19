@@ -80,6 +80,7 @@ trait NodeTestWithCachedBitcoind extends BaseNodeTest { _: CachedBitcoind[_] =>
                                                           appConfig.chainConf,
                                                           appConfig.nodeConf)
         startedNode <- node.start()
+        //is it enough to just sync with one bitcoind client for a test?
         syncedNode <- syncNeutrinoNode(startedNode, bitcoinds(0))
       } yield NeutrinoNodeConnectedWithBitcoinds(syncedNode, bitcoinds)
     }
