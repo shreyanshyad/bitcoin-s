@@ -74,9 +74,12 @@ trait Node extends NodeApi with ChainQueryApi with P2PLogger {
     * object. Internally in [[org.bitcoins.node.networking.P2PClient p2p client]] you will see that
     * the [[ChainApi chain api]] is updated inside of the p2p client
     */
+  lazy val peerMsgRecvs: Vector[PeerMessageReceiver] = {
+    peers.map(peer => PeerMessageReceiver.newReceiver(node = this, peer = peer))
+  }
+
   lazy val clients: Vector[P2PClient] = {
-    val peerMsgRecvs: Vector[PeerMessageReceiver] =
-      peers.map(x => PeerMessageReceiver.newReceiver(node = this, peer = x))
+
     val zipped = peers.zip(peerMsgRecvs)
     val p2p = zipped.map { case (peer, peerMsgRecv) =>
       P2PClient(context = system,
@@ -137,6 +140,18 @@ trait Node extends NodeApi with ChainQueryApi with P2PLogger {
           logger.error(
             s"Failed to connect with peer=${peers(idx)} with err=$err"))
         isInitializedF.map { _ =>
+          if (nodeAppConfig.nodeType == NodeType.NeutrinoNode) {
+            val versionF = peerMsgRecvs(idx).state.versionMsgP.future
+            val compactFilterSupported =
+              versionF.map(_.services.nodeCompactFilters)
+            compactFilterSupported.map { res =>
+              if (!res) {
+                logger.info(
+                  "Peer=${peers(idx)} does not support compact filters. Disconnecting.")
+                peerMsgSenders(idx).disconnect()
+              }
+            }
+          }
           logger.info(s"Our peer=${peers(idx)} has been initialized")
         }
       }
