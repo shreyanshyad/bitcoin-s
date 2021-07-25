@@ -149,10 +149,13 @@ trait Node extends NodeApi with ChainQueryApi with P2PLogger {
                 logger.info(
                   "Peer=${peers(idx)} does not support compact filters. Disconnecting.")
                 peerMsgSenders(idx).disconnect()
+              } else {
+                logger.info(s"Our peer=${peers(idx)} has been initialized")
               }
             }
+          } else {
+            logger.info(s"Our peer=${peers(idx)} has been initialized")
           }
-          logger.info(s"Our peer=${peers(idx)} has been initialized")
         }
       }
 
