@@ -16,7 +16,7 @@ object Deps {
     val slf4j = "1.7.32"
     val spray = "1.3.6"
     val zeromq = "0.5.2"
-    val akkav = "10.2.5"
+    val akkav = "10.2.6"
     val playv = "2.9.2"
     val akkaStreamv = "2.6.15"
     val scodecV = "1.1.27"
@@ -291,7 +291,8 @@ object Deps {
       Compile.newMicroPickle.value,
       Compile.playJson,
       Compile.slf4j,
-      Compile.grizzledSlf4j
+      Compile.grizzledSlf4j,
+      Compile.typesafeConfig
     )
   }
 

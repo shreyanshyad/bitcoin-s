@@ -1,8 +1,9 @@
 package org.bitcoins.bundle.gui
 
 import com.typesafe.config.{Config, ConfigFactory}
+import org.bitcoins.commons.util.DatadirUtil
 import org.bitcoins.core.config._
-import org.bitcoins.db.util.DatadirUtil
+import org.bitcoins.gui.util.GUIUtil
 import org.bitcoins.server.BitcoinSAppConfig
 import org.bitcoins.server.BitcoinSAppConfig.toNodeConf
 import scalafx.geometry._
@@ -63,6 +64,7 @@ class NeutrinoConfigPane(
           peerAddressTF.text.value = defaultPeerForNetwork(network)
         }
       }
+      minWidth = 300
     }
 
   private val peerAddressTF: TextField = new TextField() {
@@ -70,12 +72,16 @@ class NeutrinoConfigPane(
     minWidth = 300
   }
 
+  private val torCheckBox: CheckBox = new CheckBox() {
+    selected = appConfig.nodeConf.socks5ProxyParams.isDefined
+  }
+
   private var nextRow: Int = 0
 
   val gridPane: GridPane = new GridPane() {
     hgap = 5
     vgap = 10
-    padding = Insets(top = 10, right = 10, bottom = 10, left = 10)
+    padding = Insets(10)
     alignment = Pos.TopCenter
 
     add(new Label("Network"), 0, nextRow)
@@ -84,26 +90,34 @@ class NeutrinoConfigPane(
     add(new Label("Peer Address"), 0, nextRow)
     add(peerAddressTF, 1, nextRow)
     nextRow += 1
+
+    add(new Label("Use Tor"), 0, nextRow)
+    add(torCheckBox, 1, nextRow)
+    nextRow += 1
   }
 
   val launchButton: Button = new Button("Launch Wallet") {
-    margin = Insets(top = 180, right = 0, bottom = 0, left = 0)
     onAction = _ => model.launchWallet(getConfig, appConfig)
   }
 
   val view: Node = new VBox() {
     alignment = Pos.TopCenter
-    children = Vector(neutrinoExplainer, gridPane, launchButton)
+    children =
+      Vector(neutrinoExplainer, gridPane, GUIUtil.getVSpacer(), launchButton)
     spacing = 20
   }
 
   def getConfig: Config = {
     // Auto-enable proxy for .onion peers
-    val proxyConfStr = if (peerAddressTF.text.value.contains(".onion")) {
-      s"""
-         |bitcoin-s.proxy.enabled = true
-         |""".stripMargin
-    } else ""
+    val proxyConfStr =
+      if (
+        peerAddressTF.text.value.contains(
+          ".onion") || torCheckBox.selected.value
+      ) {
+        s"""
+           |bitcoin-s.proxy.enabled = true
+           |""".stripMargin
+      } else ""
     val configStr = proxyConfStr +
       s"""
          |bitcoin-s.network = ${DatadirUtil.networkStrToDirName(

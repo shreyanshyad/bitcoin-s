@@ -53,6 +53,10 @@ class BitcoindConfigPane(
       minWidth = 300
     }
 
+  private val torCheckBox: CheckBox = new CheckBox() {
+    selected = appConfig.nodeConf.socks5ProxyParams.isDefined
+  }
+
   private var nextRow: Int = 0
 
   val gridPane: GridPane = new GridPane() {
@@ -80,21 +84,32 @@ class BitcoindConfigPane(
     add(new Label("Bitcoin Core Version"), 0, nextRow)
     add(versionComboBox, 1, nextRow)
     nextRow += 1
+
+    add(new Label("Use Tor"), 0, nextRow)
+    add(torCheckBox, 1, nextRow)
+    nextRow += 1
   }
 
   val launchButton: Button = new Button("Launch Wallet") {
-    margin = Insets(top = 80, right = 0, bottom = 0, left = 0)
     onAction = _ => model.launchWallet(getConfig, appConfig)
   }
 
   val view: Node = new VBox() {
-    children = Vector(bitcoindExplainer, gridPane, launchButton)
+    children =
+      Vector(bitcoindExplainer, gridPane, GUIUtil.getVSpacer(), launchButton)
     spacing = 20
     alignment = Pos.TopCenter
   }
 
   def getConfig: Config = {
-    val configStr =
+    val proxyConfStr =
+      if (hostTF.text.value.contains(".onion") || torCheckBox.selected.value) {
+        s"""
+           |bitcoin-s.proxy.enabled = true
+           |""".stripMargin
+      } else ""
+
+    val configStr = proxyConfStr +
       s"""
          |bitcoin-s.node.mode = bitcoind
          |bitcoin-s.bitcoind-rpc.isRemote = true

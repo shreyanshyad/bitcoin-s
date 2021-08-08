@@ -122,7 +122,8 @@ lazy val bitcoindRpc = project
   .settings(CommonSettings.prodSettings: _*)
   .dependsOn(
     asyncUtilsJVM,
-    appCommons
+    appCommons,
+    tor
   )
 
 lazy val eclairRpc = project
@@ -138,7 +139,7 @@ lazy val lndRpc = project
 lazy val tor = project
   .in(file("tor"))
   .settings(CommonSettings.prodSettings: _*)
-  .dependsOn(cryptoJVM)
+  .dependsOn(coreJVM, appCommons)
 
 lazy val torTest = project
   .in(file("tor-test"))
@@ -658,7 +659,7 @@ lazy val docs = project
 lazy val keyManager = project
   .in(file("key-manager"))
   .settings(CommonSettings.prodSettings: _*)
-  .dependsOn(coreJVM, dbCommons)
+  .dependsOn(coreJVM, appCommons)
 
 lazy val keyManagerTest = project
   .in(file("key-manager-test"))

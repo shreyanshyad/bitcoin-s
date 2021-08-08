@@ -169,12 +169,28 @@ class WalletGUIModel(dlcModel: DLCPaneModel)(implicit system: ActorSystem)
         false
       case Success(commandReturn) =>
         val json = ujson.read(commandReturn).obj
-        val pnl = json(PicklerKeys.pnl).num.toLong.toString
+        val pnl = json(PicklerKeys.pnl).num.toLong
         val rateOfReturn = json(PicklerKeys.rateOfReturn).num
-        val rorPrettyPrint = RateOfReturnUtil.prettyPrint(rateOfReturn)
-        GlobalData.currentPNL.value = pnl
-        GlobalData.rateOfReturn.value = rorPrettyPrint
+        val rorPercentage = RateOfReturnUtil.toPercentage(rateOfReturn)
+        GlobalData.currentPNL.value = GUIUtil.numberFormatter.format(pnl)
+        GlobalData.rateOfReturn.value = rorPercentage
         true
+    }
+  }
+
+  // Address returned from GetDLCHostAddress when Tor is disabled
+  private val DEFAULT_TOR_ADDRESS = "0:0:0:0:0:0:0:0:2862"
+
+  /** Retrieves the tor endpoint address
+    */
+  def updateTorAddress() = {
+    ConsoleCli.exec(GetDLCHostAddress, GlobalData.consoleCliConfig) match {
+      case Failure(err) =>
+        logger.error(s"Error fetching tor address", err)
+      case Success(commandReturn) =>
+        // Leave Tor Address out of UI if Tor is not enabled
+        if (commandReturn != DEFAULT_TOR_ADDRESS)
+          GlobalData.torAddress.value = commandReturn
     }
   }
 }

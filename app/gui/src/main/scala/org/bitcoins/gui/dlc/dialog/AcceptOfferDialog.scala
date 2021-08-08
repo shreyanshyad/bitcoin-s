@@ -1,8 +1,9 @@
 package org.bitcoins.gui.dlc.dialog
 
-import org.bitcoins.cli.CliCommand.{AcceptDLCCliCommand, AcceptDLCOffer}
+import org.bitcoins.cli.CliCommand._
 import org.bitcoins.core.protocol.dlc.models._
 import org.bitcoins.core.protocol.tlv._
+import org.bitcoins.core.util.NetworkUtil
 import org.bitcoins.gui.GlobalData
 import org.bitcoins.gui.dlc.DLCPlotUtil
 import org.bitcoins.gui.util.GUIUtil
@@ -15,12 +16,19 @@ import scalafx.stage.Window
 import scala.collection._
 import scala.util.{Failure, Success, Try}
 
-class AcceptOfferDialog extends CliCommandProducer[AcceptDLCOffer] {
+class AcceptOfferDialog extends CliCommandProducer[AcceptDLCCliCommand] {
 
-  override def getCliCommand(): AcceptDLCOffer = {
+  override def getCliCommand(): AcceptDLCCliCommand = {
     val offerHex = offerTLVTF.text.value
     val offer = LnMessageFactory(DLCOfferTLV).fromHex(offerHex)
-    AcceptDLCOffer(offer)
+    if (peerAddressTF.text.value.nonEmpty) {
+      val peer =
+        NetworkUtil.parseInetSocketAddress(peerAddressTF.text.value, 2862)
+
+      AcceptDLC(offer, peer)
+    } else {
+      AcceptDLCOffer(offer)
+    }
   }
 
   private var dialogOpt: Option[Dialog[Option[AcceptDLCCliCommand]]] = None
@@ -52,7 +60,7 @@ class AcceptOfferDialog extends CliCommandProducer[AcceptDLCOffer] {
     val result = dialogOpt.map(_.showAndWait())
 
     result match {
-      case Some(Some(cmd: AcceptDLCCliCommand)) =>
+      case Some(Some(Some(cmd: AcceptDLCCliCommand))) =>
         Some(cmd)
       case Some(_) | None => None
     }
@@ -62,23 +70,40 @@ class AcceptOfferDialog extends CliCommandProducer[AcceptDLCOffer] {
     minWidth = 300
   }
 
+  private lazy val peerAddressTF = new TextField() {
+    minWidth = 300
+    promptText = "(optional)"
+  }
+
   def buildView(initialOffer: String = "") = {
     var dlcDetailsShown = false
 
-    var nextRow: Int = 2
+    var nextRow: Int = 0
     val gridPane = new GridPane {
       alignment = Pos.Center
       padding = Insets(10)
       hgap = 5
       vgap = 5
 
-      add(new Label("DLC Offer") {
-            tooltip = Tooltip("Offer message given from your counter party.")
+      add(
+        new Label("DLC Offer") {
+          tooltip = Tooltip("Offer message given from your counter party.")
+          tooltip.value.setShowDelay(new javafx.util.Duration(100))
+        },
+        0,
+        nextRow
+      )
+      add(offerTLVTF, 1, nextRow)
+      nextRow += 1
+
+      add(new Label("Peer Address") {
+            tooltip = Tooltip("Peer's IP or onion address")
             tooltip.value.setShowDelay(new javafx.util.Duration(100))
           },
           0,
-          0)
-      add(offerTLVTF, 1, 0)
+          nextRow)
+      add(peerAddressTF, 1, nextRow)
+      nextRow += 1
     }
 
     def showOfferTerms(offer: DLCOfferTLV): Unit = {
