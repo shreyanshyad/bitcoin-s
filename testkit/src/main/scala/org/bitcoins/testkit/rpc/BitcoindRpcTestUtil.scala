@@ -888,7 +888,7 @@ trait BitcoindRpcTestUtil extends Logging {
   def createNodePairV22(clientAccum: RpcClientAccum)(implicit
       system: ActorSystem): Future[
     (BitcoindV21RpcClient, BitcoindV21RpcClient)
-  ] = //shouldn't this be V22
+  ] = //shouldn't this be V22?
     createNodePairInternal(BitcoindVersion.V22, clientAccum)
 
   /** Returns a pair of [[org.bitcoins.rpc.client.v23.BitcoindV23RpcClient BitcoindV23RpcClient]]
