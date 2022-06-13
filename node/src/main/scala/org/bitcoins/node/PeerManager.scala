@@ -222,8 +222,7 @@ case class PeerManager(node: Node, configPeers: Vector[Peer] = Vector.empty)(
     for {
       peersFromDb <- getPeersFromDb
     } yield {
-      peersFromConfig.take(1).foreach(addTestPeer)
-      peerDiscoveryStack.pushAll(peersFromConfig.drop(1))
+      peersFromConfig.foreach(addTestPeer)
       peerDiscoveryStack.pushAll(Random.shuffle(peersFromResources))
       peerDiscoveryStack.pushAll(Random.shuffle(peersFromDb))
       peerConnectionScheduler //start scheduler
@@ -291,8 +290,8 @@ case class PeerManager(node: Node, configPeers: Vector[Peer] = Vector.empty)(
     if (filteredPeers.isEmpty) {
       throw new RuntimeException("No peers supporting compact filters!")
     }
-//    val randomPeer = filteredPeers(Random.nextInt(filteredPeers.length))
-    val randomPeer = filteredPeers(0)
+    val randomPeer = filteredPeers(Random.nextInt(filteredPeers.length))
+//    val randomPeer = filteredPeers(0)
     randomPeer._1
   }
 
