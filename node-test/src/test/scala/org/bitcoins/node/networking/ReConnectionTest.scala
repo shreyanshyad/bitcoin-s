@@ -26,16 +26,22 @@ class ReConnectionTest extends BitcoindRpcTest with CachedBitcoinSAppConfig {
   behavior of "ReConnectionTest"
 
   it must "attempt to reconnect if max connections are full" in {
+    println(s"RECONNECTION TEST: started")
     val peerHandlerF: Future[PeerHandler] = for {
       _ <- cachedConfig.start()
       peer <- bitcoindPeerF.flatMap(p => NodeUnitTest.buildPeerHandler(p, None))
     } yield peer
 
     val connectedF = for {
+      peer <- bitcoindPeerF
+      _ = println(s"RECONNECTION TEST: using $peer")
       peerHandler <- peerHandlerF
+      _ = println(s"RECONNECTION TEST: got peer handler")
       bitcoindRpc <- bitcoindRpcF
+      _ = println(s"RECONNECTION TEST: got bitcoindrpc")
 
       _ = peerHandler.peerMsgSender.connect()
+      _ = println(s"RECONNECTION TEST: sent connect")
       _ <- AsyncUtil
         .retryUntilSatisfiedF(() => peerHandler.p2pClient.isConnected())
         .recover { case _: RpcRetryException =>
@@ -43,17 +49,24 @@ class ReConnectionTest extends BitcoindRpcTest with CachedBitcoinSAppConfig {
           //because maxconnections=0
           ()
         }
+      _ = println(s"RECONNECTION TEST: stopping bitcoind")
       _ <- bitcoindRpc.stop()
+      _ = println(s"RECONNECTION TEST: stopped bitcoind")
       //need to wait for mac to unlock the datadir
       //before we can restart the bitcoind binary
       _ <- AkkaUtil.nonBlockingSleep(3.seconds)
+      _ = println(s"RECONNECTION TEST: starting bitcoind")
       _ <- bitcoindRpc.start()
+      _ = println(s"RECONNECTION TEST: started bitcoind")
       //now we should eventually automatically reconnect
       _ <- AsyncUtil.retryUntilSatisfiedF(
         conditionF = () => peerHandler.p2pClient.isConnected(),
         interval = 500.millis,
         maxTries = 60)
-    } yield succeed
+    } yield {
+      println(s"RECONNECTION TEST: completed test")
+      succeed
+    }
 
     connectedF
   }
