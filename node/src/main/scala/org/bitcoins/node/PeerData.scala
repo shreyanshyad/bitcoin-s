@@ -46,6 +46,12 @@ case class PeerData(
     _serviceIdentifier = Some(serviceIdentifier)
   }
 
+  private var _invalidMessagesCount: Int = 0
+
+  def updateInvalidMessageCount(): Unit = {
+    _invalidMessagesCount += 1
+  }
+
   private var lastTimedOut: Long = 0
 
   def updateLastFailureTime(): Unit = {
@@ -57,5 +63,9 @@ case class PeerData(
   def hasFailedRecently: Boolean = {
     val timePast = System.currentTimeMillis() - lastTimedOut
     timePast < 30.minutes.toMillis
+  }
+
+  def exceededMaxInvalidMessages: Boolean = {
+    _invalidMessagesCount > nodeAppConfig.maxInvalidResponsesAllowed
   }
 }

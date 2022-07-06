@@ -136,13 +136,16 @@ class PeerMessageReceiver(
           verackMsgP = good.verackMsgP)
         new PeerMessageReceiver(node, newState, peer)
       case good @ (_: Initializing | _: Normal | _: Waiting) =>
+        logger.debug(s"DISCONNECTE $peer")
         good match {
           case wait: Waiting =>
             onResponseTimeout(wait.responseFor)
             wait.timeout.cancel()
           case wait: Initializing =>
             wait.timeout.cancel()
-          case _ =>
+          case _: Normal =>
+            node.peerManager.onConnectionDrop(peer)
+          case _: PeerMessageReceiverState =>
         }
 
         logger.debug(s"Disconnected bitcoin peer=${peer}")
@@ -152,6 +155,7 @@ class PeerMessageReceiver(
           versionMsgP = good.versionMsgP,
           verackMsgP = good.verackMsgP
         )
+        logger.debug(s"POST DISCONN")
 
         new PeerMessageReceiver(node, newState, peer)
     }

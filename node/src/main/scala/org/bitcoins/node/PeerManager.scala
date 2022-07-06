@@ -3,12 +3,7 @@ package org.bitcoins.node
 import akka.actor.ActorSystem
 import org.bitcoins.asyncutil.AsyncUtil
 import org.bitcoins.core.api.node.NodeType
-import org.bitcoins.core.p2p.{
-  AddrV2Message,
-  ExpectsResponse,
-  ServiceIdentifier,
-  VersionMessage
-}
+import org.bitcoins.core.p2p._
 import org.bitcoins.core.util.{NetworkUtil, StartStopAsync}
 import org.bitcoins.node.config.NodeAppConfig
 import org.bitcoins.node.models.{Peer, PeerDAO, PeerDb}
@@ -200,6 +195,14 @@ case class PeerManager(
     else Future.successful(false)
   }
 
+  def isDisconnected(peer: Peer): Future[Boolean] = {
+    if (peerData.contains(peer)) {
+      peerData(peer).peerMessageSender.isDisconnected()
+    } else {
+      Future.successful(!waitingForDeletion.contains(peer))
+    }
+  }
+
   def isInitialized(peer: Peer): Future[Boolean] = {
     if (peerData.contains(peer))
       peerData(peer).peerMessageSender.isInitialized()
@@ -310,6 +313,16 @@ case class PeerManager(
     }
   }
 
+  def onConnectionDrop(peer: Peer): Unit = {
+    logger.info(s"Connection dropped by $peer")
+    try {
+      peerData(peer).updateLastFailureTime()
+    } catch {
+      case e: Throwable => logger.info(s"RECONNECTION TEST $e")
+    }
+    logger.info("onConnectionDrop updated time")
+  }
+
   def onVersionMessage(peer: Peer, versionMsg: VersionMessage): Unit = {
     assert(!finder.hasPeer(peer) || !peerData.contains(peer),
            s"$peer cannot be both a test and a persistent peer")
@@ -326,11 +339,18 @@ case class PeerManager(
 
   def onQueryTimeout(payload: ExpectsResponse, peer: Peer): Future[Unit] = {
     logger.debug(s"Query timeout out for $peer")
+
+    //if we are removing this peer and an existing query timed out because of that
+    // peerData will not have this peer
+    if (peerData.contains(peer)) {
+      peerData(peer).updateLastFailureTime()
+    }
+
     payload match {
-      case _ => //if any times out, try a new peer
-        peerData(peer).updateLastFailureTime()
-        val syncPeer = node.getDataMessageHandler.syncPeer
-        if (syncPeer.isDefined && syncPeer.get == peer)
+      case _: GetHeadersMessage =>
+        node.getDataMessageHandler.onHeaderRequestTimeout(peer)
+      case _ =>
+        if (peer == node.getDataMessageHandler.syncPeer.get)
           syncFromNewPeer()
         else Future.unit
     }

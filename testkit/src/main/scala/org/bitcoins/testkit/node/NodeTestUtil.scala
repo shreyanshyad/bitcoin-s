@@ -12,7 +12,7 @@ import org.bitcoins.testkit.async.TestAsyncUtil
 import org.bitcoins.testkit.util.TorUtil
 import org.bitcoins.tor.Socks5ProxyParams
 
-import java.net.InetSocketAddress
+import java.net.{InetSocketAddress, URI}
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -183,6 +183,13 @@ abstract class NodeTestUtil extends P2PLogger {
     } yield ()
   }
 
+  def getNodeUri(bitcoind: BitcoindRpcClient)(implicit
+      system: ActorSystem): Future[URI] = {
+    import system.dispatcher
+    bitcoind.getPeerInfo.map { infos =>
+      infos.filter(_.networkInfo.addrlocal.isDefined).head.networkInfo.addr
+    }
+  }
 }
 
 object NodeTestUtil extends NodeTestUtil

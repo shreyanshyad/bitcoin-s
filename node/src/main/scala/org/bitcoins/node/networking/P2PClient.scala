@@ -466,8 +466,10 @@ case class P2PClientActor(
   }
 
   def handleExpectResponse(msg: NetworkPayload): Unit = {
-    currentPeerMsgHandlerRecv =
-      currentPeerMsgHandlerRecv.handleExpectResponse(msg)
+    if (currentPeerMsgHandlerRecv.isConnected) {
+      currentPeerMsgHandlerRecv =
+        currentPeerMsgHandlerRecv.handleExpectResponse(msg)
+    }
   }
 }
 

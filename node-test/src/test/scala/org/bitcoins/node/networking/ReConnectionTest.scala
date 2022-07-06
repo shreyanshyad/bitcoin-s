@@ -34,8 +34,11 @@ class ReConnectionTest extends BitcoindRpcTest with CachedBitcoinSAppConfig {
     val connectedF = for {
       peerHandler <- peerHandlerF
       bitcoindRpc <- bitcoindRpcF
+      peer <- bitcoindPeerF
 
       _ = peerHandler.peerMsgSender.connect()
+      _ = logger.info(s"RECONNECTION TEST: $peer")
+      _ = logger.info("RECONNECTION TEST: CONNECTED 1")
       _ <- AsyncUtil
         .retryUntilSatisfiedF(() => peerHandler.p2pClient.isConnected())
         .recover { case _: RpcRetryException =>
@@ -43,16 +46,19 @@ class ReConnectionTest extends BitcoindRpcTest with CachedBitcoinSAppConfig {
           //because maxconnections=0
           ()
         }
-      _ <- bitcoindRpc.stop()
-      //need to wait for mac to unlock the datadir
-      //before we can restart the bitcoind binary
-      _ <- AkkaUtil.nonBlockingSleep(3.seconds)
-      _ <- bitcoindRpc.start()
-      //now we should eventually automatically reconnect
+      _ = logger.info("RECONNECTION TEST: CONNECTED 1 DONE")
+      peerInfo <- bitcoindRpc.getPeerInfo
+      _ = logger.info(s"RECONNECTION TEST : $peerInfo")
+      uri = peerInfo.head.networkInfo.addr
+      _ <- bitcoindRpc.disconnectNode(uri)
+      _ <- AkkaUtil.nonBlockingSleep(2.seconds)
+      _ = logger.info(s"RECONNECTION TEST: $uri")
+      _ = logger.info("RECONNECTION TEST: CONNECTED 2")
       _ <- AsyncUtil.retryUntilSatisfiedF(
         conditionF = () => peerHandler.p2pClient.isConnected(),
         interval = 500.millis,
         maxTries = 60)
+      _ = logger.info("RECONNECTION TEST: CONNECTED 2 DONE")
     } yield succeed
 
     connectedF
