@@ -179,11 +179,22 @@ abstract class NodeTestUtil extends P2PLogger {
   def awaitAllSync(node: NeutrinoNode, bitcoind: BitcoindRpcClient)(implicit
       system: ActorSystem): Future[Unit] = {
     import system.dispatcher
-    for {
+    val x = for {
       _ <- NodeTestUtil.awaitSync(node, bitcoind)
       _ <- NodeTestUtil.awaitCompactFilterHeadersSync(node, bitcoind)
       _ <- NodeTestUtil.awaitCompactFiltersSync(node, bitcoind)
     } yield ()
+
+    x.recoverWith { case e: Throwable =>
+      for {
+        peer <- NodeUnitTest.createPeer(bitcoind)
+      } yield {
+        println(s"SYNC FAIL WAS WITH $peer")
+        throw e
+      }
+    }
+
+    x
   }
 
   /** get our neutrino node's uri from a test bitcoind instance to send rpc commands for our node.

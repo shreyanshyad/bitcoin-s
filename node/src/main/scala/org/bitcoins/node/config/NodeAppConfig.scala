@@ -198,6 +198,13 @@ case class NodeAppConfig(baseDatadir: Path, configOverrides: Vector[Config])(
     } else 15.seconds
   }
 
+  /** maximum consecutive number of invalid responses allowed from the same peer */
+  lazy val maxInvalidResponsesAllowed: Int = {
+    if (config.hasPath("bitcoin-s.node.max-invalid-response-count")) {
+      config.getInt("bitcoin-s.node.max-invalid-response-count")
+    } else 10
+  }
+
   /** Creates either a neutrino node or a spv node based on the [[NodeAppConfig]] given */
   def createNode(
       peers: Vector[Peer] = Vector.empty[Peer],

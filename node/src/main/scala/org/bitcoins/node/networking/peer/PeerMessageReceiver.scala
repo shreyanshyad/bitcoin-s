@@ -147,6 +147,7 @@ class PeerMessageReceiver(
           case wait: Initializing =>
             wait.initializationTimeoutCancellable.cancel()
             Future.unit
+          //onConnectionDrop in state: Normal
           case _ => Future.unit
         }
 
@@ -213,7 +214,7 @@ class PeerMessageReceiver(
       }
     }
 
-    networkMsgRecv.msg.payload match {
+    val F = networkMsgRecv.msg.payload match {
       case controlPayload: ControlPayload =>
         handleControlPayload(payload = controlPayload,
                              sender = peerMsgSender,
@@ -223,6 +224,8 @@ class PeerMessageReceiver(
                           sender = peerMsgSender,
                           curReceiver)
     }
+
+    F
   }
 
   /** Handles a [[DataPayload]] message. It checks if the sender is the parent
@@ -266,7 +269,8 @@ class PeerMessageReceiver(
 
   def onResponseTimeout(networkPayload: NetworkPayload): Future[Unit] = {
     assert(networkPayload.isInstanceOf[ExpectsResponse])
-    logger.debug(s"Handling response timeout for ${networkPayload.commandName}")
+    logger.debug(
+      s"Handling response timeout for ${networkPayload.commandName} from $peer")
 
     //isn't this redundant? No, on response timeout may be called when not cancel timeout
     state match {
@@ -287,6 +291,9 @@ class PeerMessageReceiver(
   }
 
   def handleExpectResponse(msg: NetworkPayload): Future[PeerMessageReceiver] = {
+    require(
+      msg.isInstanceOf[ExpectsResponse],
+      s"Cannot expect response for ${msg.commandName} from $peer as ${msg.commandName} does not expect a response.")
     state match {
       case good: Normal =>
         logger.debug(s"Handling expected response for ${msg.commandName}")

@@ -814,6 +814,24 @@ trait BitcoindRpcTestUtil extends Logging {
     createNodePairInternal(version)
   }
 
+  /** Returns a pair of [[org.bitcoins.rpc.client.common.BitcoindRpcClient BitcoindRpcClient]]
+    * that are not connected but have the same blocks in the chain
+    */
+  def createUnconnectedNodePairWithBlocks[T <: BitcoindRpcClient](
+      clientAccum: RpcClientAccum = Vector.newBuilder)(implicit
+      system: ActorSystem): Future[(BitcoindRpcClient, BitcoindRpcClient)] = {
+    import system.dispatcher
+    for {
+      (first, second) <- createNodePair(clientAccum)
+      _ <- first.addNode(second.getDaemon.uri, AddNodeArgument.Remove)
+      _ <- first.disconnectNode(second.getDaemon.uri)
+      _ <- awaitDisconnected(first, second)
+      _ <- awaitDisconnected(second, first)
+    } yield {
+      (first, second)
+    }
+  }
+
   /** Returns a pair of [[org.bitcoins.rpc.client.v16.BitcoindV16RpcClient BitcoindV16RpcClient]]
     * that are connected with some blocks in the chain
     */

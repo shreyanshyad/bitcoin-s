@@ -54,6 +54,7 @@ case class NeutrinoNode(
   override def start(): Future[NeutrinoNode] = {
     val res = for {
       node <- super.start()
+      _ = updateDataMessageHandler(dataMessageHandler.copy(node = Some(this)))
     } yield {
       node.asInstanceOf[NeutrinoNode]
     }
@@ -93,6 +94,7 @@ case class NeutrinoNode(
       bestFilterHeaderOpt <- chainApi.getBestFilterHeader()
       bestFilterOpt <- chainApi.getBestFilter()
       blockchains <- blockchainsF
+//      _ = updateDataMessageHandler(dataMessageHandler.reset)
       // Get all of our cached headers in case of a reorg
       cachedHeaders = blockchains.flatMap(_.headers).map(_.hashBE.flip)
       _ <- peerMsgSender.sendGetHeadersMessage(cachedHeaders)
