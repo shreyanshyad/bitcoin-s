@@ -43,11 +43,12 @@ class ReConnectionTest extends BitcoindRpcTest with CachedBitcoinSAppConfig {
           //because maxconnections=0
           ()
         }
-      _ <- bitcoindRpc.stop()
+      info <- bitcoindRpc.getPeerInfo
+      _ <- bitcoindRpc.disconnectNode(info.head.networkInfo.addr)
       //need to wait for mac to unlock the datadir
       //before we can restart the bitcoind binary
-      _ <- AkkaUtil.nonBlockingSleep(3.seconds)
-      _ <- bitcoindRpc.start()
+      _ <- AkkaUtil.nonBlockingSleep(2.seconds)
+//      _ <- bitcoindRpc.start()
       //now we should eventually automatically reconnect
       _ <- AsyncUtil.retryUntilSatisfiedF(
         conditionF = () => peerHandler.p2pClient.isConnected(),

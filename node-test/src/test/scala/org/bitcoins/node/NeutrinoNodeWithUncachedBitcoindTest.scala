@@ -8,10 +8,9 @@ import org.bitcoins.testkit.node.fixture.NeutrinoNodeConnectedWithBitcoinds
 import org.bitcoins.testkit.node.{NodeTestUtil, NodeUnitTest}
 import org.bitcoins.testkit.rpc.BitcoindRpcTestUtil
 import org.bitcoins.testkit.tor.CachedTor
-import org.bitcoins.testkit.util.{AkkaUtil, TorUtil}
+import org.bitcoins.testkit.util.TorUtil
 import org.scalatest.{FutureOutcome, Outcome}
 
-import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, Future}
 
 /** Neutrino node tests that require changing the state of bitcoind instance */
@@ -49,6 +48,7 @@ class NeutrinoNodeWithUncachedBitcoindTest extends NodeUnitTest with CachedTor {
 
   behavior of "NeutrinoNode"
 
+  //was a faulty test
   it must "switch to different peer and sync if current is unavailable" in {
     nodeConnectedWithBitcoinds =>
       val node = nodeConnectedWithBitcoinds.node
@@ -57,26 +57,19 @@ class NeutrinoNodeWithUncachedBitcoindTest extends NodeUnitTest with CachedTor {
       def peers = peerManager.peers
 
       for {
+        _ <- AsyncUtil.retryUntilSatisfied(peers.size == 2)
         bitcoindPeers <- bitcoinPeersF
-        zipped = bitcoinds.zip(bitcoindPeers)
-        _ <- AsyncUtil.retryUntilSatisfied(peers.size == 2,
-                                           interval = 1.second,
-                                           maxTries = 10)
-        _ <- node.sync()
-        sync1 = zipped.find(_._2 == node.getDataMessageHandler.syncPeer.get).get
-        h1 <- sync1._1.getBestHashBlockHeight()
-        _ <- sync1._1.stop()
-        _ <- AkkaUtil.nonBlockingSleep(3.seconds)
-        // generating new blocks from the other bitcoind instance
-        other = bitcoinds.filterNot(_ == sync1._1).head
-        _ <- other.getNewAddress.flatMap(other.generateToAddress(10, _))
-        sync2 = zipped.find(_._2 == node.getDataMessageHandler.syncPeer.get).get
-        _ <- NodeTestUtil.awaitAllSync(node, sync2._1)
-        h2 <- sync2._1.getBestHashBlockHeight()
-        //starting it again for subsequent tests
-        _ <- sync1._1.start()
+        _ = node.updateDataMessageHandler(
+          node.getDataMessageHandler.copy(syncPeer = Some(bitcoindPeers(0)))(
+            executionContext,
+            node.nodeAppConfig,
+            node.chainAppConfig))
+        _ = peerManager.peerData(bitcoindPeers(0)).client.close()
+        _ <- NodeTestUtil.awaitAllSync(node, bitcoinds(1))
+        newSyncPeer = node.getDataMessageHandler.syncPeer.get
+        peer2 = bitcoindPeers(1)
       } yield {
-        assert(sync1._2 != sync2._2 && h2 - h1 == 10)
+        assert(newSyncPeer == peer2)
       }
   }
 
