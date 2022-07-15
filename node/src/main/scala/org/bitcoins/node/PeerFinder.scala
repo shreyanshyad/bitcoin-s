@@ -167,7 +167,7 @@ case class PeerFinder(
     //delete try queue
     _peersToTry.clear()
 
-    _peerData.foreach(_._2.client.close())
+    _peerData.foreach(_._2.client.foreach(_.close()))
 
     AsyncUtil
       .retryUntilSatisfied(_peerData.isEmpty,
@@ -179,7 +179,7 @@ case class PeerFinder(
   /** creates and initialises a new test peer */
   def tryPeer(peer: Peer): Unit = {
     _peerData.put(peer, PeerData(peer, node, supervisor))
-    _peerData(peer).peerMessageSender.connect()
+    _peerData(peer).peerMessageSender.foreach(_.connect())
   }
 
   def removePeer(peer: Peer): Unit = {

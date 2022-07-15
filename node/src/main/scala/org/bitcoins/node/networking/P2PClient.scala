@@ -1,6 +1,6 @@
 package org.bitcoins.node.networking
 
-import akka.actor.{Actor, ActorRef, Props, Terminated}
+import akka.actor.{Actor, ActorRef, ActorSystem, Props, Terminated}
 import akka.event.LoggingReceive
 import akka.io.Tcp.SO.KeepAlive
 import akka.io.{IO, Tcp}
@@ -564,7 +564,9 @@ object P2PClient extends P2PLogger {
       onReconnect: Peer => Future[Unit],
       onStop: Peer => Future[Unit],
       maxReconnectionTries: Int = 16,
-      supervisor: ActorRef)(implicit config: NodeAppConfig): P2PClient = {
+      supervisor: ActorRef)(implicit
+      config: NodeAppConfig,
+      system: ActorSystem): Future[P2PClient] = {
 
     val clientProps = props(peer,
                             peerMessageReceiver,
@@ -572,12 +574,13 @@ object P2PClient extends P2PLogger {
                             onStop,
                             maxReconnectionTries)
 
+    import system.dispatcher
     implicit val timeout: Timeout = Timeout(10.second)
     val actorRefF = supervisor ? clientProps
-    val actorRef =
-      Await.result(actorRefF, timeout.duration).asInstanceOf[ActorRef]
 
-    P2PClient(actorRef, peer)
+    actorRefF.map { actorRef =>
+      P2PClient(actorRef.asInstanceOf[ActorRef], peer)
+    }
   }
 
   /** Akka sends messages as one byte stream. There is not a 1 to 1 relationship between byte streams received and

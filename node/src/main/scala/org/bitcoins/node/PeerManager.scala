@@ -63,12 +63,13 @@ case class PeerManager(
 
   def peers: Vector[Peer] = _peerData.keys.toVector
 
-  def peerMsgSenders: Vector[PeerMessageSender] =
+  def peerMsgSenders: Vector[Future[PeerMessageSender]] =
     _peerData.values
       .map(_.peerMessageSender)
       .toVector
 
-  def clients: Vector[P2PClient] = _peerData.values.map(_.client).toVector
+  def clients: Vector[Future[P2PClient]] =
+    _peerData.values.map(_.client).toVector
 
   def randomPeerWithService(services: ServiceIdentifier): Future[Peer] = {
     //wait when requested
@@ -95,7 +96,7 @@ case class PeerManager(
   def randomPeerMsgSenderWithService(
       services: ServiceIdentifier): Future[PeerMessageSender] = {
     val randomPeerF = randomPeerWithService(services)
-    randomPeerF.map(peer => peerData(peer).peerMessageSender)
+    randomPeerF.flatMap(peer => peerData(peer).peerMessageSender)
   }
 
   def createInDb(
@@ -161,7 +162,7 @@ case class PeerManager(
     //leading to a memory leak may happen
     _waitingForDeletion.add(peer)
     //now send request to stop actor which will be completed some time in future
-    client.close()
+    client.foreach(_.close())
   }
 
   def isReconnection(peer: Peer): Boolean = {
@@ -203,13 +204,13 @@ case class PeerManager(
 
   def isConnected(peer: Peer): Future[Boolean] = {
     if (peerData.contains(peer))
-      peerData(peer).peerMessageSender.isConnected()
+      peerData(peer).peerMessageSender.flatMap(_.isConnected())
     else Future.successful(false)
   }
 
   def isInitialized(peer: Peer): Future[Boolean] = {
     if (peerData.contains(peer))
-      peerData(peer).peerMessageSender.isInitialized()
+      peerData(peer).peerMessageSender.flatMap(_.isInitialized())
     else Future.successful(false)
   }
 
@@ -219,11 +220,11 @@ case class PeerManager(
 
     if (finder.hasPeer(peer)) {
       //one of the peers that we tried, failed to init within time, disconnect
-      finder.getData(peer).client.close()
+      finder.getData(peer).client.foreach(_.close())
     } else if (peerData.contains(peer)) {
       //this is one of our persistent peers which must have been initialized earlier, this can happen in case of
       //a reconnection attempt, meaning it got connected but failed to initialize, disconnect
-      peerData(peer).client.close()
+      peerData(peer).client.foreach(_.close())
     } else {
       //this should never happen
       logger.warn(s"onInitializationTimeout called for unknown $peer")
@@ -245,7 +246,7 @@ case class PeerManager(
       logger.debug(s"Initialized peer $peer with $hasCf")
 
       def sendAddrReq: Future[Unit] =
-        finder.getData(peer).peerMessageSender.sendGetAddrMessage()
+        finder.getData(peer).peerMessageSender.flatMap(_.sendGetAddrMessage())
 
       def managePeerF(): Future[Unit] = {
         //if we have slots remaining, connect
@@ -267,7 +268,7 @@ case class PeerManager(
               .map { _ =>
                 //could have already been deleted in case of connection issues
                 if (finder.hasPeer(peer))
-                  finder.getData(peer).client.close()
+                  finder.getData(peer).client.foreach(_.close())
               }
           }
         }
