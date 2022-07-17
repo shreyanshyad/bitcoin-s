@@ -72,12 +72,15 @@ class PeerMessageReceiverTest extends NodeTestWithCachedBitcoindNewest {
       val peerMsgReceiver =
         PeerMessageReceiver(normal, node, peer)(system, node.nodeAppConfig)
 
-      val newMsgReceiver = peerMsgReceiver.disconnect()
+      val newMsgReceiverF = peerMsgReceiver.disconnect()
 
-      assert(
-        newMsgReceiver.state
-          .isInstanceOf[PeerMessageReceiverState.Disconnected])
-      assert(newMsgReceiver.isDisconnected)
+      newMsgReceiverF.map { newMsgReceiver =>
+        assert(
+          newMsgReceiver.state
+            .isInstanceOf[PeerMessageReceiverState.Disconnected])
+        assert(newMsgReceiver.isDisconnected)
+      }
+
   }
 
   it must "change a peer message receiver to be initializing disconnect" in {
@@ -111,19 +114,20 @@ class PeerMessageReceiverTest extends NodeTestWithCachedBitcoindNewest {
       val peerMsgReceiver =
         PeerMessageReceiver(normal, node, peer)(system, node.nodeAppConfig)
 
-      val newMsgReceiver = peerMsgReceiver.initializeDisconnect()
+      for {
+        newMsgReceiver <- peerMsgReceiver.initializeDisconnect()
+        disconnectRecv <- newMsgReceiver.disconnect()
+      } yield {
+        assert(
+          newMsgReceiver.state
+            .isInstanceOf[PeerMessageReceiverState.InitializedDisconnect])
+        assert(!newMsgReceiver.isDisconnected)
 
-      assert(
-        newMsgReceiver.state
-          .isInstanceOf[PeerMessageReceiverState.InitializedDisconnect])
-      assert(!newMsgReceiver.isDisconnected)
-
-      val disconnectRecv = newMsgReceiver.disconnect()
-
-      assert(
-        disconnectRecv.state
-          .isInstanceOf[PeerMessageReceiverState.InitializedDisconnectDone])
-      assert(disconnectRecv.isDisconnected)
-      assert(disconnectRecv.state.clientDisconnectP.isCompleted)
+        assert(
+          disconnectRecv.state
+            .isInstanceOf[PeerMessageReceiverState.InitializedDisconnectDone])
+        assert(disconnectRecv.isDisconnected)
+        assert(disconnectRecv.state.clientDisconnectP.isCompleted)
+      }
   }
 }

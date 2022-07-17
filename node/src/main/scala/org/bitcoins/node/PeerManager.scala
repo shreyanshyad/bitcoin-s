@@ -153,7 +153,7 @@ case class PeerManager(
     addPeer(withPeer)
   }
 
-  def removePeer(peer: Peer): Unit = {
+  def removePeer(peer: Peer): Future[Unit] = {
     logger.debug(s"Removing persistent peer $peer")
     val client = peerData(peer).client
     _peerData.remove(peer)
@@ -162,7 +162,7 @@ case class PeerManager(
     //leading to a memory leak may happen
     _waitingForDeletion.add(peer)
     //now send request to stop actor which will be completed some time in future
-    client.foreach(_.close())
+    client.map(_.close())
   }
 
   def isReconnection(peer: Peer): Boolean = {
@@ -185,7 +185,7 @@ case class PeerManager(
 
     val finderStopF = finder.stop()
 
-    peers.foreach(removePeer)
+    val removeF = Future.sequence(peers.map(removePeer))
 
     val managerStopF = AsyncUtil.retryUntilSatisfied(
       _peerData.isEmpty && waitingForDeletion.isEmpty,
@@ -193,6 +193,7 @@ case class PeerManager(
       maxTries = 10)
 
     for {
+      _ <- removeF
       _ <- finderStopF
       _ <- managerStopF
     } yield {
@@ -214,20 +215,21 @@ case class PeerManager(
     else Future.successful(false)
   }
 
-  def onInitializationTimeout(peer: Peer): Unit = {
+  def onInitializationTimeout(peer: Peer): Future[Unit] = {
     assert(!finder.hasPeer(peer) || !peerData.contains(peer),
            s"$peer cannot be both a test and a persistent peer")
 
     if (finder.hasPeer(peer)) {
       //one of the peers that we tried, failed to init within time, disconnect
-      finder.getData(peer).client.foreach(_.close())
+      finder.getData(peer).client.map(_.close())
     } else if (peerData.contains(peer)) {
       //this is one of our persistent peers which must have been initialized earlier, this can happen in case of
       //a reconnection attempt, meaning it got connected but failed to initialize, disconnect
-      peerData(peer).client.foreach(_.close())
+      peerData(peer).client.map(_.close())
     } else {
       //this should never happen
       logger.warn(s"onInitializationTimeout called for unknown $peer")
+      Future.unit
     }
   }
 
@@ -265,10 +267,11 @@ case class PeerManager(
             //we do want to give it enough time to send addr messages
             AsyncUtil
               .nonBlockingSleep(duration = 10.seconds)
-              .map { _ =>
+              .flatMap { _ =>
                 //could have already been deleted in case of connection issues
                 if (finder.hasPeer(peer))
-                  finder.getData(peer).client.foreach(_.close())
+                  finder.getData(peer).client.map(_.close())
+                else Future.unit
               }
           }
         }

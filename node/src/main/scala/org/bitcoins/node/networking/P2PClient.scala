@@ -76,6 +76,8 @@ case class P2PClientActor(
     extends Actor
     with P2PLogger {
 
+  import context.dispatcher
+
   private var currentPeerMsgHandlerRecv = initPeerMsgHandlerReceiver
 
   private var reconnectHandlerOpt: Option[Peer => Future[Unit]] = None
@@ -126,7 +128,7 @@ case class P2PClientActor(
       case metaMsg: P2PClient.MetaMsg =>
         sender() ! handleMetaMsg(metaMsg)
       case ExpectResponseCommand(msg) =>
-        handleExpectResponse(msg)
+        Await.result(handleExpectResponse(msg), timeout)
       case Terminated(actor) if actor == peerConnection =>
         reconnect()
     }
@@ -141,8 +143,7 @@ case class P2PClientActor(
   override def postStop(): Unit = {
     super.postStop()
     logger.debug(s"Stopped client for $peer")
-    implicit def ec: ExecutionContext = context.dispatcher
-    onStop(peer).foreach(_ => ())
+    Await.result(onStop(peer), timeout)
   }
 
   def reconnecting: Receive = LoggingReceive {
@@ -158,7 +159,7 @@ case class P2PClientActor(
       handleNodeCommand(cmd = P2PClient.CloseAnyStateCommand,
                         peerConnectionOpt = None)
     case ExpectResponseCommand(msg) =>
-      handleExpectResponse(msg)
+      Await.result(handleExpectResponse(msg), timeout)
     case metaMsg: P2PClient.MetaMsg =>
       sender() ! handleMetaMsg(metaMsg)
   }
@@ -169,7 +170,7 @@ case class P2PClientActor(
         handleNodeCommand(cmd = P2PClient.CloseAnyStateCommand,
                           peerConnectionOpt = None)
       case ExpectResponseCommand(msg) =>
-        handleExpectResponse(msg)
+        Await.result(handleExpectResponse(msg), timeout)
       case Tcp.CommandFailed(c: Tcp.Connect) =>
         val peerOrProxyAddress = c.remoteAddress
         logger.debug(
@@ -334,13 +335,15 @@ case class P2PClientActor(
       case Tcp.ErrorClosed(cause) =>
         logger.debug(
           s"An error occurred in our connection with $peer, cause=$cause state=${currentPeerMsgHandlerRecv.state}")
-        currentPeerMsgHandlerRecv = currentPeerMsgHandlerRecv.disconnect()
+        currentPeerMsgHandlerRecv =
+          Await.result(currentPeerMsgHandlerRecv.disconnect(), timeout)
         unalignedBytes
       case closeCmd @ (Tcp.ConfirmedClosed | Tcp.Closed | Tcp.Aborted |
           Tcp.PeerClosed) =>
         logger.debug(
           s"We've been disconnected by $peer command=${closeCmd} state=${currentPeerMsgHandlerRecv.state}")
-        currentPeerMsgHandlerRecv = currentPeerMsgHandlerRecv.disconnect()
+        currentPeerMsgHandlerRecv =
+          Await.result(currentPeerMsgHandlerRecv.disconnect(), timeout)
         unalignedBytes
 
       case Tcp.Received(byteString: ByteString) =>
@@ -443,8 +446,9 @@ case class P2PClientActor(
         peerConnectionOpt match {
           case Some(peerConnection) =>
             logger.debug(s"Disconnecting from peer $peer")
-            currentPeerMsgHandlerRecv =
-              currentPeerMsgHandlerRecv.initializeDisconnect()
+            currentPeerMsgHandlerRecv = Await.result(
+              currentPeerMsgHandlerRecv.initializeDisconnect(),
+              timeout)
             peerConnection ! Tcp.Close
           case None =>
             logger.warn(
@@ -454,8 +458,9 @@ case class P2PClientActor(
         logger.debug(s"Received close any state for $peer")
         peerConnectionOpt match {
           case Some(peerConnection) =>
-            currentPeerMsgHandlerRecv =
-              currentPeerMsgHandlerRecv.initializeDisconnect()
+            currentPeerMsgHandlerRecv = Await.result(
+              currentPeerMsgHandlerRecv.initializeDisconnect(),
+              timeout)
             peerConnection ! Tcp.Close
           case None =>
             currentPeerMsgHandlerRecv =
@@ -465,9 +470,10 @@ case class P2PClientActor(
     }
   }
 
-  def handleExpectResponse(msg: NetworkPayload): Unit = {
-    currentPeerMsgHandlerRecv =
-      currentPeerMsgHandlerRecv.handleExpectResponse(msg)
+  def handleExpectResponse(msg: NetworkPayload): Future[Unit] = {
+    currentPeerMsgHandlerRecv.handleExpectResponse(msg).map { newReceiver =>
+      currentPeerMsgHandlerRecv = newReceiver
+    }
   }
 }
 
