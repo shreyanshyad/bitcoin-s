@@ -1,6 +1,7 @@
 package org.bitcoins.testkit.node
 
 import akka.actor.ActorSystem
+import org.bitcoins.asyncutil.AsyncUtil
 import org.bitcoins.chain.blockchain.ChainHandlerCached
 import org.bitcoins.chain.config.ChainAppConfig
 import org.bitcoins.chain.models._
@@ -29,6 +30,7 @@ import org.scalatest.FutureOutcome
 
 import java.net.InetSocketAddress
 import java.time.Instant
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
 trait NodeUnitTest extends BaseNodeTest {
@@ -509,7 +511,7 @@ object NodeUnitTest extends P2PLogger {
   def syncNeutrinoNode(node: NeutrinoNode, bitcoind: BitcoindRpcClient)(implicit
       system: ActorSystem): Future[NeutrinoNode] = {
     import system.dispatcher
-    for {
+    val x = for {
       syncing <- node.chainApiFromDb().flatMap(_.isSyncing())
       _ = assert(!syncing)
       _ <- node.sync()
@@ -518,10 +520,28 @@ object NodeUnitTest extends P2PLogger {
       _ <- NodeTestUtil.awaitSync(node, bitcoind)
       _ <- NodeTestUtil.awaitCompactFilterHeadersSync(node, bitcoind)
       _ <- NodeTestUtil.awaitCompactFiltersSync(node, bitcoind)
-      syncing <- node.chainApiFromDb().flatMap(_.isSyncing())
-      _ = assert(!syncing)
-
+      _ <- AsyncUtil.retryUntilSatisfiedF(
+        () => {
+          for {
+            x <- node.chainApiFromDb().flatMap(_.isSyncing())
+          } yield {
+            !x
+          }
+        },
+        interval = 1.second,
+        maxTries = 25)
     } yield node
+
+    x.recoverWith { e =>
+      for {
+        peer <- createPeer(bitcoind)
+      } yield {
+        println(s"SYNC FAILED WITH $peer")
+        throw e
+      }
+    }
+
+    x
   }
 
   /** This is needed for postgres, we do not drop tables in between individual tests with postgres

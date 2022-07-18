@@ -13,6 +13,7 @@ import org.bitcoins.testkit.tor.CachedTor
 import org.bitcoins.testkit.util.TorUtil
 import org.scalatest.{FutureOutcome, Outcome}
 
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, Future}
 
 /** Neutrino node tests that require changing the state of bitcoind instance */
@@ -59,7 +60,9 @@ class NeutrinoNodeWithUncachedBitcoindTest extends NodeUnitTest with CachedTor {
 
       for {
         bitcoindPeers <- bitcoinPeersF
-        _ <- AsyncUtil.retryUntilSatisfied(peers.size == 2)
+        _ <- AsyncUtil.retryUntilSatisfied(peers.size == 2,
+                                           maxTries = 30,
+                                           interval = 1.second)
         //sync from first bitcoind
         _ = node.updateDataMessageHandler(
           node.getDataMessageHandler.copy(syncPeer = Some(bitcoindPeers(0)))(

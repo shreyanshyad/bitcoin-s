@@ -180,7 +180,7 @@ object AsyncUtil extends AsyncUtil {
 
   /** The default number of async attempts before timing out
     */
-  private[bitcoins] val DEFAULT_MAX_TRIES: Int = 50
+  private[bitcoins] val DEFAULT_MAX_TRIES: Int = 300
 
   /** Gives you a thread factory with the given prefix with a counter appended to the name */
   def getNewThreadFactory(prefix: String): ThreadFactory = {

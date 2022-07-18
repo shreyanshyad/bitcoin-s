@@ -114,15 +114,14 @@ class PeerMessageReceiverTest extends NodeTestWithCachedBitcoindNewest {
       val peerMsgReceiver =
         PeerMessageReceiver(normal, node, peer)(system, node.nodeAppConfig)
 
-      for {
-        newMsgReceiver <- peerMsgReceiver.initializeDisconnect()
-        disconnectRecv <- newMsgReceiver.disconnect()
-      } yield {
-        assert(
-          newMsgReceiver.state
-            .isInstanceOf[PeerMessageReceiverState.InitializedDisconnect])
-        assert(!newMsgReceiver.isDisconnected)
+      val newMsgReceiver = peerMsgReceiver.initializeDisconnect()
 
+      assert(
+        newMsgReceiver.state
+          .isInstanceOf[PeerMessageReceiverState.InitializedDisconnect])
+      assert(!newMsgReceiver.isDisconnected)
+
+      newMsgReceiver.disconnect().map { disconnectRecv =>
         assert(
           disconnectRecv.state
             .isInstanceOf[PeerMessageReceiverState.InitializedDisconnectDone])

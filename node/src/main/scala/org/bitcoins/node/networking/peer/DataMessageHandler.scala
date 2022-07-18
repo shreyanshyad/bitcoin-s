@@ -149,11 +149,12 @@ case class DataMessageHandler(
             } else Future.unit
           newSyncing2 <- {
             if (!newSyncing) {
-              syncIfHeadersAhead(peerMsgSender)
+              syncIfHeadersAhead(peerMsgSender, peer)
             } else {
               Future.successful(newSyncing)
             }
           }
+          _ = logger.info(s"NEW SYNCING 2 $peer $newSyncing2")
           newChainApi <- newChainApi.setSyncing(newSyncing2)
         } yield {
           this.copy(
@@ -350,7 +351,8 @@ case class DataMessageHandler(
 
   /** syncs filter headers in case the header chain is still ahead post filter sync */
   def syncIfHeadersAhead(
-      peerMessageSender: PeerMessageSender): Future[Boolean] = {
+      peerMessageSender: PeerMessageSender,
+      peer: Peer): Future[Boolean] = {
     for {
       headerHeight <- chainApi.getBestHashBlockHeight()
       filterHeaderCount <- chainApi.getFilterHeaderCount()
@@ -361,6 +363,8 @@ case class DataMessageHandler(
         require(
           filterHeaderCount >= filterCount,
           s"Filter header height $filterHeaderCount must be atleast filter height $filterCount")
+        logger.info(
+          s"$peer POST SYNC CHECK headers $headerHeight $filterHeaderCount $filterCount")
         if (headerHeight > filterHeaderCount) {
           logger.info(
             s"Starting to fetch filter headers in data message handler")

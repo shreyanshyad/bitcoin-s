@@ -30,7 +30,7 @@ trait BaseAsyncTest
 
   implicit def chainParams: ChainParams = np.chainParams
 
-  implicit val duration: FiniteDuration = 10.seconds
+  implicit val duration: FiniteDuration = 30.seconds
   override lazy val timeLimit: Span = 5.minutes
 
   /** This def ensures that shrinks are disabled for all calls to forAll.

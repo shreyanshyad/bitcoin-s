@@ -65,8 +65,7 @@ class PeerMessageReceiver(
     * This is different than [[disconnect()]] as that indicates the
     * peer initialized a disconnection from us
     */
-  private[networking] def initializeDisconnect(): Future[
-    PeerMessageReceiver] = {
+  private[networking] def initializeDisconnect(): PeerMessageReceiver = {
     logger.debug(s"Initializing disconnect from $peer")
     state match {
       case good @ (_: Disconnected) =>
@@ -77,8 +76,7 @@ class PeerMessageReceiver(
           clientDisconnectP = good.clientDisconnectP,
           versionMsgP = good.versionMsgP,
           verackMsgP = good.verackMsgP)
-        val newReceiver = new PeerMessageReceiver(node, newState, peer)
-        Future.successful(newReceiver)
+        new PeerMessageReceiver(node, newState, peer)
       case bad @ (_: InitializedDisconnectDone | Preconnection |
           _: StoppedReconnect) =>
         throw new RuntimeException(
@@ -86,21 +84,21 @@ class PeerMessageReceiver(
       case _: InitializedDisconnect =>
         logger.warn(
           s"Already initialized disconnected from peer=$peer, this is a noop")
-        Future.successful(this)
+        this
       case state @ (_: Initializing | _: Normal) =>
         val newState = InitializedDisconnect(state.clientConnectP,
                                              state.clientDisconnectP,
                                              state.versionMsgP,
                                              state.verackMsgP)
-        val newReceiver = toState(newState)
-        Future.successful(newReceiver)
+        toState(newState)
       case state: Waiting =>
         val newState = InitializedDisconnect(state.clientConnectP,
                                              state.clientDisconnectP,
                                              state.versionMsgP,
                                              state.verackMsgP)
-        val newReceiver = toState(newState)
-        onResponseTimeout(state.responseFor).map(_ => newReceiver)
+        toState(newState)
+      //the node is removing this so node should retry
+//        onResponseTimeout(state.responseFor).map(_ => newReceiver)
     }
   }
 
@@ -280,7 +278,7 @@ class PeerMessageReceiver(
     networkPayload match {
       case payload: ExpectsResponse =>
         logger.debug(
-          s"Response for ${payload.commandName} from $peer timed out.")
+          s"Response for ${payload.commandName} from $peer timed out in state $state")
         node.peerManager.onQueryTimeout(payload, peer)
       case _ =>
         logger.error(

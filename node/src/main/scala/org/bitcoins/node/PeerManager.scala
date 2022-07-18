@@ -190,9 +190,9 @@ case class PeerManager(
     val managerStopF = AsyncUtil.retryUntilSatisfied(
       _peerData.isEmpty && waitingForDeletion.isEmpty,
       interval = 1.seconds,
-      maxTries = 10)
+      maxTries = 30)
 
-    for {
+    val x = for {
       _ <- removeF
       _ <- finderStopF
       _ <- managerStopF
@@ -201,6 +201,11 @@ case class PeerManager(
         s"Stopped PeerManager. Took ${System.currentTimeMillis() - beganAt} ms ")
       this
     }
+
+    x.failed.foreach(err =>
+      logger.info(s"ERROR IN STOP $err $peers $waitingForDeletion"))
+
+    x
   }
 
   def isConnected(peer: Peer): Future[Boolean] = {

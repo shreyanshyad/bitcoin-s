@@ -177,10 +177,15 @@ case class PeerFinder(
     val waitStopF = AsyncUtil
       .retryUntilSatisfied(_peerData.isEmpty,
                            interval = 1.seconds,
-                           maxTries = 10)
+                           maxTries = 30)
       .map(_ => this)
 
-    closeF.flatMap(_ => waitStopF)
+    val x = closeF.flatMap(_ => waitStopF)
+
+    x.failed.foreach(err =>
+      logger.info(s"ERROR IN FINDER STOP $err ${_peerData.keys.toVector}"))
+
+    x
   }
 
   /** creates and initialises a new test peer */
