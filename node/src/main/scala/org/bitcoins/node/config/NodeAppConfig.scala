@@ -166,7 +166,7 @@ case class NodeAppConfig(baseDatadir: Path, configOverrides: Vector[Config])(
     if (config.hasPath("bitcoin-s.node.connection-timeout")) {
       val duration = config.getDuration("bitcoin-s.node.connection-timeout")
       TimeUtil.durationToFiniteDuration(duration)
-    } else 5.seconds
+    } else 30.seconds
   }
 
   /** initialization timeout once connected, reconnections reset this */
@@ -174,7 +174,7 @@ case class NodeAppConfig(baseDatadir: Path, configOverrides: Vector[Config])(
     if (config.hasPath("bitcoin-s.node.initialization-timeout")) {
       val duration = config.getDuration("bitcoin-s.node.initialization-timeout")
       TimeUtil.durationToFiniteDuration(duration)
-    } else 10.seconds
+    } else 30.seconds
   }
 
   /** time interval for trying next set of peers in peer discovery */
@@ -190,7 +190,7 @@ case class NodeAppConfig(baseDatadir: Path, configOverrides: Vector[Config])(
     if (config.hasPath("bitcoin-s.node.query-wait-time")) {
       val duration = config.getDuration("bitcoin-s.node.query-wait-time")
       TimeUtil.durationToFiniteDuration(duration)
-    } else 15.seconds
+    } else 30.seconds
   }
 
   /** Creates either a neutrino node or a spv node based on the [[NodeAppConfig]] given */

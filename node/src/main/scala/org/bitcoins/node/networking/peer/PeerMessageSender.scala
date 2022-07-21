@@ -15,6 +15,7 @@ import org.bitcoins.crypto.{
 import org.bitcoins.node.P2PLogger
 import org.bitcoins.node.config.NodeAppConfig
 import org.bitcoins.node.constant.NodeConstants
+import org.bitcoins.node.models.Peer
 import org.bitcoins.node.networking.P2PClient
 
 import scala.concurrent.duration.DurationInt
@@ -199,13 +200,16 @@ case class PeerMessageSender(client: P2PClient)(implicit conf: NodeAppConfig)
   private[node] def sendNextGetCompactFilterCommand(
       chainApi: ChainApi,
       filterBatchSize: Int,
-      startHeight: Int)(implicit ec: ExecutionContext): Future[Boolean] = {
+      startHeight: Int,
+      peer: Peer)(implicit ec: ExecutionContext): Future[Boolean] = {
+    logger.info(s"$peer asking next fiter header batch range")
     for {
       filterSyncMarkerOpt <-
         chainApi.nextFilterHeaderBatchRange(startHeight, filterBatchSize)
       res <- filterSyncMarkerOpt match {
         case Some(filterSyncMarker) =>
-          logger.info(s"Requesting compact filters from $filterSyncMarker")
+          logger.info(
+            s"Requesting compact filters from $filterSyncMarker $peer")
 
           sendGetCompactFiltersMessage(filterSyncMarker)
             .map(_ => true)

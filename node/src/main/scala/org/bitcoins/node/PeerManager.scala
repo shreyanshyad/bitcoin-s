@@ -190,7 +190,7 @@ case class PeerManager(
     val managerStopF = AsyncUtil.retryUntilSatisfied(
       _peerData.isEmpty && waitingForDeletion.isEmpty,
       interval = 1.seconds,
-      maxTries = 30)
+      maxTries = 200)
 
     val x = for {
       _ <- removeF
@@ -228,6 +228,7 @@ case class PeerManager(
       //one of the peers that we tried, failed to init within time, disconnect
       finder.getData(peer).client.map(_.close())
     } else if (peerData.contains(peer)) {
+//      Future.unit
       //this is one of our persistent peers which must have been initialized earlier, this can happen in case of
       //a reconnection attempt, meaning it got connected but failed to initialize, disconnect
       peerData(peer).client.map(_.close())
@@ -358,7 +359,8 @@ case class PeerManager(
   }
 
   def syncFromNewPeer(): Future[Unit] = {
-    logger.debug(s"Trying to sync from new peer")
+    logger.debug(
+      s"Trying to sync from new peer current was ${node.getDataMessageHandler.syncPeer}")
     val newNode =
       node.updateDataMessageHandler(node.getDataMessageHandler.reset)
     newNode.sync()

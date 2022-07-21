@@ -36,6 +36,7 @@ class PeerMessageReceiver(
     * This method will initiate the handshake
     */
   protected[networking] def connect(client: P2PClient): PeerMessageReceiver = {
+    logger.debug(s"CONNNECT CALL $peer $state")
 
     state match {
       case bad @ (_: Initializing | _: Normal | _: InitializedDisconnect |
@@ -66,7 +67,7 @@ class PeerMessageReceiver(
     * peer initialized a disconnection from us
     */
   private[networking] def initializeDisconnect(): PeerMessageReceiver = {
-    logger.debug(s"Initializing disconnect from $peer")
+    logger.debug(s"Initializing disconnect from $peer in $state")
     state match {
       case good @ (_: Disconnected) =>
         //if its already disconnected, just say init disconnect done so it wont reconnect
@@ -96,13 +97,14 @@ class PeerMessageReceiver(
                                              state.clientDisconnectP,
                                              state.versionMsgP,
                                              state.verackMsgP)
-        toState(newState)
-      //the node is removing this so node should retry
+        val newReceiver = toState(newState)
+        newReceiver
 //        onResponseTimeout(state.responseFor).map(_ => newReceiver)
     }
   }
 
   def stopReconnect(): PeerMessageReceiver = {
+    logger.debug(s"$peer stop reconnect call $state")
     state match {
       case Preconnection =>
         //when retry, state should be back to preconnection
@@ -124,7 +126,7 @@ class PeerMessageReceiver(
   }
 
   protected[networking] def disconnect(): Future[PeerMessageReceiver] = {
-    logger.trace(s"Disconnecting with internalstate=${state}")
+    logger.trace(s"Disconnecting with internalstate=${state} from $peer")
     state match {
       case bad @ (_: Disconnected | Preconnection |
           _: InitializedDisconnectDone | _: StoppedReconnect) =>
@@ -214,7 +216,7 @@ class PeerMessageReceiver(
       }
     }
 
-    networkMsgRecv.msg.payload match {
+    val x = networkMsgRecv.msg.payload match {
       case controlPayload: ControlPayload =>
         handleControlPayload(payload = controlPayload,
                              sender = peerMsgSender,
@@ -224,6 +226,13 @@ class PeerMessageReceiver(
                           sender = peerMsgSender,
                           curReceiver)
     }
+
+    x.recover { e =>
+      logger.info(s"HANDLE PAYLOAD ERROR $peer $state")
+      throw e
+    }
+
+    x
   }
 
   /** Handles a [[DataPayload]] message. It checks if the sender is the parent
@@ -261,13 +270,14 @@ class PeerMessageReceiver(
   }
 
   def onInitTimeout(): Future[Unit] = {
-    logger.debug(s"Init timeout for peer $peer")
+    logger.debug(s"Init timeout for peer $peer $state")
     node.peerManager.onInitializationTimeout(peer)
   }
 
   def onResponseTimeout(networkPayload: NetworkPayload): Future[Unit] = {
     assert(networkPayload.isInstanceOf[ExpectsResponse])
-    logger.debug(s"Handling response timeout for ${networkPayload.commandName}")
+    logger.debug(
+      s"Handling response timeout for ${networkPayload.commandName} $state $peer")
 
     //isn't this redundant? No, on response timeout may be called when not cancel timeout
     state match {
@@ -288,6 +298,7 @@ class PeerMessageReceiver(
   }
 
   def handleExpectResponse(msg: NetworkPayload): Future[PeerMessageReceiver] = {
+    logger.debug(s"$peer handle expect response call $state")
     state match {
       case good: Normal =>
         logger.debug(s"Handling expected response for ${msg.commandName}")

@@ -171,7 +171,8 @@ case class NeutrinoNode(
                                              filterBatchSize =
                                                chainConfig.filterBatchSize,
                                              startHeight =
-                                               bestFilterOpt.get.height)
+                                               bestFilterOpt.get.height,
+                                             peer = syncPeer)
             .map(_ => ())
         }
       } else {

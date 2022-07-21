@@ -118,7 +118,8 @@ case class P2PClientActor(
       case message: NetworkMessage =>
         message match {
           case _: ExpectsResponse =>
-            logger.debug(s"${message.payload.commandName} expects response")
+            logger.debug(
+              s"${message.payload.commandName} from $peer expects response")
             Await.result(handleExpectResponse(message.payload), timeout)
           case _ =>
         }
@@ -141,14 +142,22 @@ case class P2PClientActor(
       case ExpectResponseCommand(msg) =>
         Await.result(handleExpectResponse(msg), timeout)
       case Terminated(actor) if actor == peerConnection =>
+        currentPeerMsgHandlerRecv.state match {
+          case initializing: Initializing =>
+            initializing.timeout.cancel()
+          case _ =>
+        }
+        logger.debug(
+          s"await net req RECONNN $peer ${currentPeerMsgHandlerRecv.state}")
         reconnect()
     }
 
   private def ignoreNetworkMessages(
       peerConnectionOpt: Option[ActorRef],
       unalignedBytes: ByteVector): Receive = LoggingReceive {
-    case _ @(_: NetworkMessage | _: NetworkPayload |
+    case x @ (_: NetworkMessage | _: NetworkPayload |
         _: ExpectResponseCommand) =>
+      logger.info(s"$peer ignoring $x ${currentPeerMsgHandlerRecv.state}")
     case message: Tcp.Event if peerConnectionOpt.isDefined =>
       val newUnalignedBytes =
         handleEvent(message, peerConnectionOpt.get, unalignedBytes)
@@ -160,6 +169,12 @@ case class P2PClientActor(
       sender() ! handleMetaMsg(metaMsg)
     case Terminated(actor)
         if peerConnectionOpt.isDefined && actor == peerConnectionOpt.get =>
+      logger.debug(s"IGNORE RECONNN $peer ${currentPeerMsgHandlerRecv.state}")
+      currentPeerMsgHandlerRecv.state match {
+        case initializing: Initializing =>
+          initializing.timeout.cancel()
+        case _ =>
+      }
       reconnect()
   }
 
@@ -202,9 +217,14 @@ case class P2PClientActor(
       case ExpectResponseCommand(msg) =>
         Await.result(handleExpectResponse(msg), timeout)
       case Tcp.CommandFailed(c: Tcp.Connect) =>
+        currentPeerMsgHandlerRecv.state match {
+          case initializing: Initializing =>
+            initializing.timeout.cancel()
+          case _ =>
+        }
         val peerOrProxyAddress = c.remoteAddress
         logger.debug(
-          s"connection failed to ${peerOrProxyAddress} ${proxyParams}")
+          s"connection failed to ${peerOrProxyAddress} ${proxyParams} $peer")
         reconnect()
 
       case event @ Tcp.Connected(peerOrProxyAddress, _) =>
@@ -252,6 +272,11 @@ case class P2PClientActor(
         s"connected to ${remoteAddress} via SOCKS5 proxy ${proxyAddress}")
       val _ = handleEvent(event, proxy, ByteVector.empty)
     case Terminated(actor) if actor == proxy =>
+      currentPeerMsgHandlerRecv.state match {
+        case initializing: Initializing =>
+          initializing.timeout.cancel()
+        case _ =>
+      }
       reconnect()
     case metaMsg: P2PClient.MetaMsg =>
       sender() ! handleMetaMsg(metaMsg)
@@ -431,7 +456,11 @@ case class P2PClientActor(
         currentPeerMsgHandlerRecv = newMsgReceiver
         if (currentPeerMsgHandlerRecv.isInitialized) {
           curReconnectionTry = 0
-          reconnectHandlerOpt.foreach(_(peer))
+          val x = reconnectHandlerOpt.map(_(peer))
+          if (x.isDefined) {
+            val y = x.get
+            Await.result(y, timeout)
+          }
           reconnectHandlerOpt = None
         }
         peerConnection ! Tcp.ResumeReading
@@ -471,6 +500,8 @@ case class P2PClientActor(
       case P2PClient.ConnectCommand =>
         connect()
       case P2PClient.ReconnectCommand =>
+        logger.debug(
+          s"RECONNECT COMMAND $peer ${currentPeerMsgHandlerRecv.state}")
         reconnect()
       case P2PClient.CloseCommand =>
         peerConnectionOpt match {
@@ -548,6 +579,7 @@ case class P2PClient(actor: ActorRef, peer: Peer) extends P2PLogger {
   /** Closes the P2P client
     */
   def close(): Unit = {
+    logger.info(s"CLOSE FOR $peer requested")
     actor ! P2PClient.CloseAnyStateCommand
   }
 }

@@ -86,11 +86,12 @@ case class DataMessageHandler(
                   walletCreationTimeOpt)
                 _ = logger.info(
                   s"Done syncing filter headers, beginning to sync filters from startHeightOpt=$startHeightOpt")
-                syncing <- sendFirstGetCompactFilterCommand(
-                  peerMsgSender,
-                  startHeightOpt).map { synced =>
-                  if (!synced) logger.info("We are synced")
-                  syncing
+                syncing <- sendFirstGetCompactFilterCommand(peerMsgSender,
+                                                            startHeightOpt,
+                                                            peer).map {
+                  synced =>
+                    if (!synced) logger.info("We are synced")
+                    syncing
                 }
               } yield (syncing, startHeightOpt)
             }
@@ -108,7 +109,7 @@ case class DataMessageHandler(
                     filterHeightOpt = startFilterHeightOpt)
         }
       case filter: CompactFilterMessage =>
-        logger.debug(s"Received ${filter.commandName}, $filter")
+        logger.debug(s"Received ${filter.commandName}, $filter $peer")
         val batchSizeFull: Boolean =
           currentFilterBatch.size == chainConfig.filterBatchSize - 1
         for {
@@ -132,20 +133,25 @@ case class DataMessageHandler(
                 (filter.blockHash,
                  BlockFilter.fromBytes(filter.filterBytes, filter.blockHash))
               }
-              logger.info(s"Processing ${filterBatch.size} filters")
+              logger.info(s"Processing ${filterBatch.size} filters $peer")
               for {
                 newChainApi <- chainApi.processFilters(filterBatch)
+                _ = logger.info(s"done PROCESSING FILTERS $peer")
                 _ <-
                   appConfig.callBacks
                     .executeOnCompactFiltersReceivedCallbacks(logger,
                                                               blockFilters)
+                _ = logger.info(s"CALLBACKS DONE $peer")
               } yield (Vector.empty, newChainApi)
             } else Future.successful((filterBatch, chainApi))
+          _ = logger.info(s"PROCESSED FILTERS FROM $peer")
           _ <-
             if (batchSizeFull) {
               logger.info(
-                s"Received maximum amount of filters in one batch. This means we are not synced, requesting more")
-              sendNextGetCompactFilterCommand(peerMsgSender, newFilterHeight)
+                s"Received maximum amount of filters in one batch. This means we are not synced, requesting more $peer")
+              sendNextGetCompactFilterCommand(peerMsgSender,
+                                              newFilterHeight,
+                                              peer)
             } else Future.unit
           newSyncing2 <- {
             if (!newSyncing) {
@@ -353,26 +359,30 @@ case class DataMessageHandler(
   def syncIfHeadersAhead(
       peerMessageSender: PeerMessageSender,
       peer: Peer): Future[Boolean] = {
+    logger.info(s"AT SYNC IF HEADERS AEAD $peer")
     for {
       headerHeight <- chainApi.getBestHashBlockHeight()
+      _ = logger.info(s"ASKED FOR HEIGHT 1 $peer")
       filterHeaderCount <- chainApi.getFilterHeaderCount()
+      _ = logger.info(s"GOT FILTER HEADER COUNT $peer")
       filterCount <- chainApi.getFilterCount()
       syncing <- {
-        require(headerHeight >= Math.max(filterHeaderCount, filterCount),
-                "Header chain cannot be behind filter or filter header chain")
-        require(
-          filterHeaderCount >= filterCount,
-          s"Filter header height $filterHeaderCount must be atleast filter height $filterCount")
         logger.info(
           s"$peer POST SYNC CHECK headers $headerHeight $filterHeaderCount $filterCount")
+        assert(
+          headerHeight >= Math.max(filterHeaderCount, filterCount),
+          s"Header chain cannot be behind filter or filter header chain $peer")
+        assert(
+          filterHeaderCount >= filterCount,
+          s"Filter header height $filterHeaderCount must be atleast filter height $filterCount $peer")
         if (headerHeight > filterHeaderCount) {
           logger.info(
-            s"Starting to fetch filter headers in data message handler")
+            s"Starting to fetch filter headers in data message handler $peer")
           sendFirstGetCompactFilterHeadersCommand(peerMessageSender)
         } else {
           require(
             headerHeight == filterHeaderCount && headerHeight == filterCount)
-          logger.info(s"We are synced")
+          logger.info(s"We are synced $peer")
           Try(initialSyncDone.map(_.success(Done)))
           Future.successful(false)
         }
@@ -418,23 +428,32 @@ case class DataMessageHandler(
 
   private def sendNextGetCompactFilterCommand(
       peerMsgSender: PeerMessageSender,
-      startHeight: Int): Future[Boolean] =
+      startHeight: Int,
+      peer: Peer): Future[Boolean] = {
+    logger.info(s"$peer send next get cfilter command")
     peerMsgSender.sendNextGetCompactFilterCommand(chainApi = chainApi,
                                                   filterBatchSize =
                                                     chainConfig.filterBatchSize,
-                                                  startHeight = startHeight)
+                                                  startHeight = startHeight,
+                                                  peer)
+  }
 
   private def sendFirstGetCompactFilterCommand(
       peerMsgSender: PeerMessageSender,
-      startHeightOpt: Option[Int]): Future[Boolean] = {
+      startHeightOpt: Option[Int],
+      peer: Peer): Future[Boolean] = {
+    logger.info(s"$peer send firt get cfilter command")
     val startHeightF = startHeightOpt match {
       case Some(startHeight) => Future.successful(startHeight)
-      case None              => chainApi.getFilterCount()
+      case None =>
+        logger.info(s"$peer asking filter count")
+        chainApi.getFilterCount()
     }
 
     for {
       startHeight <- startHeightF
-      res <- sendNextGetCompactFilterCommand(peerMsgSender, startHeight)
+      _ = logger.info(s"asked heigt $peer")
+      res <- sendNextGetCompactFilterCommand(peerMsgSender, startHeight, peer)
     } yield res
   }
 

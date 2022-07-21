@@ -189,7 +189,8 @@ trait Node extends NodeApi with ChainQueryApi with P2PLogger {
           peerManager
             .peerData(peer)
             .peerMessageSender
-            .sendGetDataMessage(TypeIdentifier.MsgWitnessBlock, blockHashes: _*)
+            .flatMap(_.sendGetDataMessage(TypeIdentifier.MsgWitnessBlock,
+                                          blockHashes: _*))
         case None =>
           throw new RuntimeException(
             "IBD not started yet. Cannot query for blocks.")

@@ -177,7 +177,7 @@ case class PeerFinder(
     val waitStopF = AsyncUtil
       .retryUntilSatisfied(_peerData.isEmpty,
                            interval = 1.seconds,
-                           maxTries = 30)
+                           maxTries = 200)
       .map(_ => this)
 
     val x = closeF.flatMap(_ => waitStopF)

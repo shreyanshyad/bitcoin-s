@@ -11,6 +11,7 @@ import org.scalatest._
 import org.scalatest.flatspec.{AsyncFlatSpec, FixtureAsyncFlatSpec}
 
 import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.DurationInt
 
 /** A bitcoin-s async test trait, that uses akka's actor system
   * execution context to run the scalatest test suites
@@ -31,7 +32,9 @@ trait BitcoinSAkkaAsyncTest extends BaseAsyncTest with Logging {
     system.dispatcher
 
   override def afterAll(): Unit = {
-    TestKit.shutdownActorSystem(system, verifySystemShutdown = true)
+    TestKit.shutdownActorSystem(system,
+                                verifySystemShutdown = true,
+                                duration = 100.seconds)
   }
 }
 
