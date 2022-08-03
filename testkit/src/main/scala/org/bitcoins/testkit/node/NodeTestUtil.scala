@@ -160,10 +160,20 @@ abstract class NodeTestUtil extends P2PLogger {
   def awaitCompactFiltersSync(node: NeutrinoNode, rpc: BitcoindRpcClient)(
       implicit sys: ActorSystem): Future[Unit] = {
     import sys.dispatcher
-    TestAsyncUtil
+    val x = TestAsyncUtil
       .retryUntilSatisfiedF(() => isSameBestFilterHeight(node, rpc),
                             1.second,
                             maxTries = 200)
+    x.recoverWith { case e =>
+      for {
+        peer <- createPeer(rpc)
+      } yield {
+        logger.info(s"SYNC FAILED WITH $peer")
+        logger.error(e.toString, e)
+        throw e
+      }
+    }
+    x
   }
 
   /** The future doesn't complete until the nodes best hash is the given hash */
