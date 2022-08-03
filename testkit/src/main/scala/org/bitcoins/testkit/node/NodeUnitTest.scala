@@ -536,9 +536,8 @@ object NodeUnitTest extends P2PLogger {
       for {
         peer <- createPeer(bitcoind)
       } yield {
-        println(s"SYNC FAILED WITH $peer")
-        println(e.toString)
-        e.printStackTrace()
+        logger.info(s"SYNC FAILED WITH $peer")
+        logger.error(e.toString,e)
         throw e
       }
     }

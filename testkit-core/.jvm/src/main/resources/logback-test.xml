@@ -75,6 +75,11 @@
     <!-- See node status messages  -->
     <logger name="org.bitcoins.node.NeutrinoNode" level="DEBUG"/>
 
+    <logger name="org.bitcoins.testkit.node.NodeUnitTest" level="DEBUG"/>
+
+    <logger name="org.bitcoins.testkit.node.NodeTestUtil" level="DEBUG"/>
+
+
     <!-- ╔════════════════════╗ -->
     <!-- ║   Chain module     ║ -->
     <!-- ╚════════════════════╝ -->

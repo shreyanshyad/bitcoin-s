@@ -167,7 +167,7 @@ abstract class NodeTestUtil extends P2PLogger {
         for {
           peer <- NodeUnitTest.createPeer(rpc)
         } yield {
-          println(s"SYNC FAILURE WAS WITH $peer")
+          logger.info(s"SYNC FAILURE WAS WITH $peer")
           throw e
         }
       }
