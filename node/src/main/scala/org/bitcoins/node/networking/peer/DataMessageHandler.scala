@@ -336,6 +336,7 @@ case class DataMessageHandler(
       logger.debug(s"Ignoring ${payload.commandName} from $peer")
       Future.successful(this)
     } else {
+      logger.debug(s"Handling ${payload.commandName} from $peer")
 
       resultF.failed.foreach { err =>
         logger.error(s"Failed to handle data payload=${payload} from $peer",

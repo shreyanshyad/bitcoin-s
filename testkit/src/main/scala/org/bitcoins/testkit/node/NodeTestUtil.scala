@@ -9,6 +9,7 @@ import org.bitcoins.node.networking.peer.PeerMessageReceiver
 import org.bitcoins.node.{NeutrinoNode, Node, P2PLogger}
 import org.bitcoins.rpc.client.common.BitcoindRpcClient
 import org.bitcoins.testkit.async.TestAsyncUtil
+import org.bitcoins.testkit.node.NodeUnitTest.createPeer
 import org.bitcoins.testkit.util.TorUtil
 import org.bitcoins.tor.Socks5ProxyParams
 
@@ -179,11 +180,23 @@ abstract class NodeTestUtil extends P2PLogger {
   def awaitAllSync(node: NeutrinoNode, bitcoind: BitcoindRpcClient)(implicit
       system: ActorSystem): Future[Unit] = {
     import system.dispatcher
-    for {
+    val x = for {
       _ <- NodeTestUtil.awaitSync(node, bitcoind)
       _ <- NodeTestUtil.awaitCompactFilterHeadersSync(node, bitcoind)
       _ <- NodeTestUtil.awaitCompactFiltersSync(node, bitcoind)
     } yield ()
+
+    x.recoverWith { case e =>
+      for {
+        peer <- createPeer(bitcoind)
+      } yield {
+        logger.info(s"SYNC FAILED WITH $peer")
+        logger.error(e.toString, e)
+        throw e
+      }
+    }
+
+    x
   }
 
   /** get our neutrino node's uri from a test bitcoind instance to send rpc commands for our node.
