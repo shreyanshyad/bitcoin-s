@@ -418,6 +418,7 @@ case class P2PClientActor(
             logger.trace(s"Processing message=${m}")
             val msg = NetworkMessageReceived(m, P2PClient(self, peer))
             if (peerMsgRecv.isConnected) {
+              logger.info(s"Got ${msg.msg.payload.commandName} from $peer")
               peerMsgRecv.handleNetworkMessageReceived(msg)
             } else {
               Future.successful(peerMsgRecv)
