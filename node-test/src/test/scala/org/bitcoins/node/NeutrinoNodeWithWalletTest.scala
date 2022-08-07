@@ -14,6 +14,7 @@ import org.bitcoins.testkit.node.{
   NodeTestUtil,
   NodeTestWithCachedBitcoindNewest
 }
+import org.bitcoins.testkit.util.AkkaUtil
 import org.bitcoins.testkit.wallet.BitcoinSWalletTest
 import org.scalatest.{FutureOutcome, Outcome}
 
@@ -231,6 +232,7 @@ class NeutrinoNodeWithWalletTest extends NodeTestWithCachedBitcoindNewest {
         _ <- bitcoind.sendToAddress(receiveAddr, sendAmt)
         //generate a block to confirm the tx
         _ <- bitcoind.generateToAddress(1, bitcoindAddr)
+        _ <- AkkaUtil.nonBlockingSleep(3.second)
         //restart the node now that we have received funds
         startedNode <- stoppedNode.start()
         _ <- startedNode.sync()
