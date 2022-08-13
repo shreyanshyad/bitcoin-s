@@ -34,4 +34,84 @@ class AnotherTest extends NodeTestWithCachedBitcoindNewest {
   it must "be nice" in { _ =>
     succeed
   }
+
+  it must "be nice1" in { _ =>
+    succeed
+  }
+
+  it must "be nice2" in { _ =>
+    succeed
+  }
+
+  it must "be nice3" in { _ =>
+    succeed
+  }
+
+  it must "be nice4" in { _ =>
+    succeed
+  }
+
+  it must "be nice5" in { _ =>
+    succeed
+  }
+
+  it must "be nice6" in { _ =>
+    succeed
+  }
+
+  it must "be nice7" in { _ =>
+    succeed
+  }
+
+  it must "be nice8" in { _ =>
+    succeed
+  }
+
+  it must "be nice9" in { _ =>
+    succeed
+  }
+
+  it must "be nice10" in { _ =>
+    succeed
+  }
+
+  it must "be nice11" in { _ =>
+    succeed
+  }
+
+  it must "be nice12" in { _ =>
+    succeed
+  }
+
+  it must "be nice13" in { _ =>
+    succeed
+  }
+
+  it must "be nice14" in { _ =>
+    succeed
+  }
+
+  it must "be nice15" in { _ =>
+    succeed
+  }
+
+  it must "be nice16" in { _ =>
+    succeed
+  }
+
+  it must "be nice17" in { _ =>
+    succeed
+  }
+
+  it must "be nice18" in { _ =>
+    succeed
+  }
+
+  it must "be nice19" in { _ =>
+    succeed
+  }
+
+  it must "be nice20" in { _ =>
+    succeed
+  }
 }
