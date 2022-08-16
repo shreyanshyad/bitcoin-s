@@ -61,6 +61,15 @@ case class DataMessageHandler(
   def handleDataPayload(
       payload: DataPayload,
       peerMsgSender: PeerMessageSender,
+      peer: Peer): Unit = {
+    val msg = DataMessageWrapper(payload, peerMsgSender, peer)
+    manager.dataMessageStream.offer(msg)
+    ()
+  }
+
+  def handleDataPayloadActual(
+      payload: DataPayload,
+      peerMsgSender: PeerMessageSender,
       peer: Peer): Future[DataMessageHandler] = {
 
     lazy val resultF = payload match {
@@ -450,9 +459,9 @@ case class DataMessageHandler(
                 val headersMessage =
                   HeadersMessage(CompactSizeUInt.one, Vector(block.blockHeader))
                 for {
-                  newMsgHandler <- handleDataPayload(headersMessage,
-                                                     peerMsgSender,
-                                                     peer)
+                  newMsgHandler <- handleDataPayloadActual(headersMessage,
+                                                           peerMsgSender,
+                                                           peer)
                   _ <-
                     appConfig.callBacks
                       .executeOnBlockHeadersReceivedCallbacks(
@@ -698,3 +707,8 @@ case class DataMessageHandler(
     }
   }
 }
+
+case class DataMessageWrapper(
+    payload: DataPayload,
+    peerMsgSender: PeerMessageSender,
+    peer: Peer)

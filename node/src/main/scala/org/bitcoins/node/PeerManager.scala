@@ -1,13 +1,18 @@
 package org.bitcoins.node
 
 import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.stream.scaladsl.{Sink, Source}
 import org.bitcoins.asyncutil.AsyncUtil
 import org.bitcoins.core.api.node.NodeType
 import org.bitcoins.core.p2p._
 import org.bitcoins.core.util.{NetworkUtil, StartStopAsync}
 import org.bitcoins.node.config.NodeAppConfig
 import org.bitcoins.node.models.{Peer, PeerDAO, PeerDb}
-import org.bitcoins.node.networking.peer.{DataMessageHandler, PeerMessageSender}
+import org.bitcoins.node.networking.peer.{
+  DataMessageHandler,
+  DataMessageWrapper,
+  PeerMessageSender
+}
 import org.bitcoins.node.networking.{P2PClient, P2PClientSupervisor}
 import org.bitcoins.node.util.BitcoinSNodeUtil
 import scodec.bits.ByteVector
@@ -396,4 +401,21 @@ case class PeerManager(
       node.updateDataMessageHandler(node.getDataMessageHandler.reset)
     newNode.sync().map(_ => node.getDataMessageHandler)
   }
+
+  val source = Source
+    .queue[DataMessageWrapper](1000)
+    .mapAsync(1) { x =>
+      println(s"Got ${x.payload.commandName} from ${x.peer} in stream")
+      node.getDataMessageHandler
+        .handleDataPayloadActual(x.payload, x.peerMsgSender, x.peer)
+        .map { k =>
+          node.updateDataMessageHandler(k)
+          x
+        }
+    }
+
+  val sink =
+    Sink.foreach[DataMessageWrapper](x =>
+      println(s"Done processing ${x.payload.commandName} in ${x.peer}"))
+  val dataMessageStream = source.to(sink).run()
 }
