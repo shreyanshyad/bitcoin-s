@@ -708,7 +708,12 @@ case class DataMessageHandler(
   }
 }
 
+sealed trait DataWrapper
+
 case class DataMessageWrapper(
     payload: DataPayload,
     peerMsgSender: PeerMessageSender,
     peer: Peer)
+    extends DataWrapper
+
+case class HeaderTimeoutWrapper(peer: Peer) extends DataWrapper

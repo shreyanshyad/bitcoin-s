@@ -8,11 +8,7 @@ import org.bitcoins.core.p2p._
 import org.bitcoins.core.util.{NetworkUtil, StartStopAsync}
 import org.bitcoins.node.config.NodeAppConfig
 import org.bitcoins.node.models.{Peer, PeerDAO, PeerDb}
-import org.bitcoins.node.networking.peer.{
-  DataMessageHandler,
-  DataMessageWrapper,
-  PeerMessageSender
-}
+import org.bitcoins.node.networking.peer._
 import org.bitcoins.node.networking.{P2PClient, P2PClientSupervisor}
 import org.bitcoins.node.util.BitcoinSNodeUtil
 import scodec.bits.ByteVector
@@ -377,12 +373,14 @@ case class PeerManager(
 
     payload match {
       case _: GetHeadersMessage =>
-        val dmhF = node.getDataMessageHandler
-          .onHeaderRequestTimeout(peer)
-        dmhF.map { dmh =>
-          node.updateDataMessageHandler(dmh)
-          ()
-        }
+        dataMessageStream.offer(HeaderTimeoutWrapper(peer))
+        Future.unit
+//        val dmhF = node.getDataMessageHandler
+//          .onHeaderRequestTimeout(peer)
+//        dmhF.map { dmh =>
+//          node.updateDataMessageHandler(dmh)
+//          ()
+//        }
       case _ =>
         if (peer == node.getDataMessageHandler.syncPeer.get)
           syncFromNewPeer().map(_ => ())
@@ -403,19 +401,30 @@ case class PeerManager(
   }
 
   val source = Source
-    .queue[DataMessageWrapper](1000)
-    .mapAsync(1) { x =>
-      println(s"Got ${x.payload.commandName} from ${x.peer} in stream")
-      node.getDataMessageHandler
-        .handleDataPayloadActual(x.payload, x.peerMsgSender, x.peer)
-        .map { k =>
+    .queue[DataWrapper](1000)
+    .mapAsync(1) {
+      case DataMessageWrapper(payload, peerMsgSender, peer) =>
+        println(s"Got ${payload.commandName} from ${peer} in stream")
+        node.getDataMessageHandler
+          .handleDataPayloadActual(payload, peerMsgSender, peer)
+          .map { k =>
+            node.updateDataMessageHandler(k)
+            DataMessageWrapper(payload, peerMsgSender, peer)
+          }
+      case HeaderTimeoutWrapper(peer) =>
+        println(s"Processing timeout header for $peer")
+        node.getDataMessageHandler.onHeaderRequestTimeout(peer).map { k =>
           node.updateDataMessageHandler(k)
-          x
+          println(s"Done processing timeout header for $peer")
+          HeaderTimeoutWrapper(peer)
         }
     }
 
   val sink =
-    Sink.foreach[DataMessageWrapper](x =>
-      println(s"Done processing ${x.payload.commandName} in ${x.peer}"))
+    Sink.foreach[DataWrapper] {
+      case DataMessageWrapper(payload, _, peer) =>
+        println(s"Done processing ${payload.commandName} in ${peer}")
+      case HeaderTimeoutWrapper(_) =>
+    }
   val dataMessageStream = source.to(sink).run()
 }

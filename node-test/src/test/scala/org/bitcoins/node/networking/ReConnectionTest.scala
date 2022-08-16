@@ -43,6 +43,7 @@ class ReConnectionTest extends BitcoindRpcTest with CachedBitcoinSAppConfig {
           //because maxconnections=0
           ()
         }
+      _ = println(s"RECONN TEST: ${peerHandler.p2pClient.peer}")
       nodeUri <- NodeTestUtil.getNodeURIFromBitcoind(bitcoindRpc)
       _ <- bitcoindRpc.disconnectNode(nodeUri)
       _ <- AkkaUtil.nonBlockingSleep(2.seconds) //time to ensure disconnection

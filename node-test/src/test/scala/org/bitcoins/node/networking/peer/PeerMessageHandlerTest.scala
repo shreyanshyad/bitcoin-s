@@ -14,8 +14,8 @@ import org.bitcoins.testkit.node.{
 import org.bitcoins.testkit.util.TorUtil
 import org.scalatest.{FutureOutcome, Outcome}
 
-import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.DurationInt
+import scala.concurrent.{Await, Future}
 
 /** Created by chris on 7/1/16.
   */
@@ -63,6 +63,8 @@ class PeerMessageHandlerTest
       peerHandler <- NodeUnitTest.buildPeerHandler(peer, None)
       peerMsgSender = peerHandler.peerMsgSender
       p2pClient = peerHandler.p2pClient
+
+      _ = println(s"HANDLER TEST: ${p2pClient.peer}")
 
       _ = peerMsgSender.connect()
 
