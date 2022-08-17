@@ -34,6 +34,9 @@ class NeutrinoNodeTest extends NodeTestWithCachedBitcoindPair {
     val outcomeF: Future[Outcome] = for {
       _ <- torClientF
       bitcoinds <- clientsF
+      p1 <- NodeUnitTest.createPeer(bitcoinds.node1)
+      p2 <- NodeUnitTest.createPeer(bitcoinds.node2)
+      _ = println(s"NEUTRINO TEST: $p1 $p2")
       outcome = withUnsyncedNeutrinoNodeConnectedToBitcoinds(
         test,
         bitcoinds.toVector)(system, getFreshConfig)
