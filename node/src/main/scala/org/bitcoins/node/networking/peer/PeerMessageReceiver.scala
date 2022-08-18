@@ -241,9 +241,9 @@ class PeerMessageReceiver(
       curReceiver: PeerMessageReceiver): Future[PeerMessageReceiver] = {
     //else it means we are receiving this data payload from a peer,
     //we need to handle it
-    node.getDataMessageHandler.handleDataPayload(payload, sender, peer)
-
-    Future.successful(new PeerMessageReceiver(node, curReceiver.state, peer))
+    node.getDataMessageHandler
+      .addToStream(payload, sender, peer)
+      .map(_ => new PeerMessageReceiver(node, curReceiver.state, peer))
   }
 
   /** Handles control payloads defined here https://bitcoin.org/en/developer-reference#control-messages

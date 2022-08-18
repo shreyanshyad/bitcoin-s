@@ -1,7 +1,8 @@
 package org.bitcoins.node
 
 import akka.actor.{ActorRef, ActorSystem, Props}
-import akka.stream.scaladsl.{Sink, Source}
+import akka.stream.OverflowStrategy
+import akka.stream.scaladsl.{Sink, Source, SourceQueueWithComplete}
 import org.bitcoins.asyncutil.AsyncUtil
 import org.bitcoins.core.api.node.NodeType
 import org.bitcoins.core.p2p._
@@ -373,14 +374,7 @@ case class PeerManager(
 
     payload match {
       case _: GetHeadersMessage =>
-        dataMessageStream.offer(HeaderTimeoutWrapper(peer))
-        Future.unit
-//        val dmhF = node.getDataMessageHandler
-//          .onHeaderRequestTimeout(peer)
-//        dmhF.map { dmh =>
-//          node.updateDataMessageHandler(dmh)
-//          ()
-//        }
+        dataMessageStream.offer(HeaderTimeoutWrapper(peer)).map(_ => ())
       case _ =>
         if (peer == node.getDataMessageHandler.syncPeer.get)
           syncFromNewPeer().map(_ => ())
@@ -400,13 +394,14 @@ case class PeerManager(
     newNode.sync().map(_ => node.getDataMessageHandler)
   }
 
-  val source = Source
-    .queue[DataWrapper](1000)
+  private val dataMessageStreamSource = Source
+    .queue[StreamDataMessageWrapper](1000,
+                                     overflowStrategy = OverflowStrategy.fail)
     .mapAsync(1) {
       case DataMessageWrapper(payload, peerMsgSender, peer) =>
         println(s"Got ${payload.commandName} from ${peer} in stream")
         node.getDataMessageHandler
-          .handleDataPayloadActual(payload, peerMsgSender, peer)
+          .handleDataPayload(payload, peerMsgSender, peer)
           .map { k =>
             node.updateDataMessageHandler(k)
             DataMessageWrapper(payload, peerMsgSender, peer)
@@ -420,11 +415,13 @@ case class PeerManager(
         }
     }
 
-  val sink =
-    Sink.foreach[DataWrapper] {
+  private val dataMessageStreamSink =
+    Sink.foreach[StreamDataMessageWrapper] {
       case DataMessageWrapper(payload, _, peer) =>
         println(s"Done processing ${payload.commandName} in ${peer}")
       case HeaderTimeoutWrapper(_) =>
     }
-  val dataMessageStream = source.to(sink).run()
+
+  val dataMessageStream: SourceQueueWithComplete[StreamDataMessageWrapper] =
+    dataMessageStreamSource.to(dataMessageStreamSink).run()
 }

@@ -55,9 +55,7 @@ class DataMessageHandlerTest extends NodeUnitTest with CachedTor {
 
         sender <- senderF
         // Verify we handle the payload correctly
-        _ <- dataMessageHandler.handleDataPayloadActual(invalidPayload,
-                                                        sender,
-                                                        peer)
+        _ <- dataMessageHandler.handleDataPayload(invalidPayload, sender, peer)
       } yield succeed
   }
 
@@ -93,7 +91,7 @@ class DataMessageHandlerTest extends NodeUnitTest with CachedTor {
                                                     node.nodeAppConfig,
                                                     node.chainConfig)
         sender <- senderF
-        _ <- dataMessageHandler.handleDataPayloadActual(payload, sender, peer)
+        _ <- dataMessageHandler.handleDataPayload(payload, sender, peer)
         result <- resultP.future
       } yield assert(result == block)
   }
@@ -132,7 +130,7 @@ class DataMessageHandlerTest extends NodeUnitTest with CachedTor {
                                                     node.nodeAppConfig,
                                                     node.chainConfig)
         sender <- senderF
-        _ <- dataMessageHandler.handleDataPayloadActual(payload, sender, peer)
+        _ <- dataMessageHandler.handleDataPayload(payload, sender, peer)
         result <- resultP.future
       } yield assert(result == Vector(header))
   }
@@ -169,7 +167,7 @@ class DataMessageHandlerTest extends NodeUnitTest with CachedTor {
                                                     node.nodeAppConfig,
                                                     node.chainConfig)
         sender <- senderF
-        _ <- dataMessageHandler.handleDataPayloadActual(payload, sender, peer)
+        _ <- dataMessageHandler.handleDataPayload(payload, sender, peer)
         result <- resultP.future
       } yield assert(result == Vector((hash.flip, filter.filter)))
   }
@@ -207,7 +205,7 @@ class DataMessageHandlerTest extends NodeUnitTest with CachedTor {
                                                     node.nodeAppConfig,
                                                     node.chainConfig)
         sender <- senderF
-        _ <- dataMessageHandler.handleDataPayloadActual(payload, sender, peer)
+        _ <- dataMessageHandler.handleDataPayload(payload, sender, peer)
         result <- resultP.future
       } yield assert(result == tx)
   }

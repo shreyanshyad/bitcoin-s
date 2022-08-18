@@ -132,9 +132,9 @@ class NeutrinoNodeWithUncachedBitcoindTest extends NodeUnitTest with CachedTor {
         invalidHeader = node.chainAppConfig.chain.genesisBlock.blockHeader
         invalidHeaderMessage = HeadersMessage(headers = Vector(invalidHeader))
         sender <- node.peerManager.peerData(peer).peerMessageSender
-        _ = node.getDataMessageHandler.handleDataPayload(invalidHeaderMessage,
-                                                         sender,
-                                                         peer)
+        _ <- node.getDataMessageHandler.addToStream(invalidHeaderMessage,
+                                                    sender,
+                                                    peer)
         bestChain = bitcoinds(1)
         _ <- NodeTestUtil.awaitSync(node, bestChain)
       } yield {
@@ -158,10 +158,10 @@ class NeutrinoNodeWithUncachedBitcoindTest extends NodeUnitTest with CachedTor {
           sendFs = 1
             .to(node.nodeConfig.maxInvalidResponsesAllowed + 1)
             .map(_ =>
-              node.getDataMessageHandler.handleDataPayload(invalidHeaderMessage,
-                                                           sender,
-                                                           peer))
-          _ <- Future.successful(sendFs)
+              node.getDataMessageHandler.addToStream(invalidHeaderMessage,
+                                                     sender,
+                                                     peer))
+          _ <- Future.sequence(sendFs)
         } yield ()
       }
 
