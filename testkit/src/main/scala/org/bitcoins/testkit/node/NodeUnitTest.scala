@@ -506,7 +506,7 @@ object NodeUnitTest extends P2PLogger {
   def syncNeutrinoNode(node: NeutrinoNode, bitcoind: BitcoindRpcClient)(implicit
       system: ActorSystem): Future[NeutrinoNode] = {
     import system.dispatcher
-    val x = for {
+    for {
       syncing <- node.chainApiFromDb().flatMap(_.isSyncing())
       _ = assert(!syncing)
       _ <- node.sync()
@@ -531,17 +531,6 @@ object NodeUnitTest extends P2PLogger {
         maxTries = 5
       )
     } yield node
-
-    x.recoverWith { case e: Throwable =>
-      for {
-        peer <- createPeer(bitcoind)
-      } yield {
-        println(s"SYNC FAIL WITH $peer")
-        throw e
-      }
-    }
-
-    x
   }
 
   /** This is needed for postgres, we do not drop tables in between individual tests with postgres
