@@ -20,10 +20,12 @@ import org.bitcoins.node.networking.peer.{
   DataMessageHandler
 }
 
+import java.time.Instant
 import scala.concurrent.Future
 
 case class NeutrinoNode(
-    private var dataMessageHandler: DataMessageHandler,
+    chainApi: ChainApi,
+    walletCreationTimeOpt: Option[Instant],
     nodeConfig: NodeAppConfig,
     chainConfig: ChainAppConfig,
     actorSystem: ActorSystem,
@@ -41,6 +43,9 @@ case class NeutrinoNode(
 
   val controlMessageHandler: ControlMessageHandler = ControlMessageHandler(this)
 
+  private var dataMessageHandler: DataMessageHandler =
+    DataMessageHandler(chainApi, walletCreationTimeOpt, this)
+
   override def getDataMessageHandler: DataMessageHandler = dataMessageHandler
 
   override def updateDataMessageHandler(
@@ -54,7 +59,6 @@ case class NeutrinoNode(
   override def start(): Future[NeutrinoNode] = {
     val res = for {
       node <- super.start()
-      _ = updateDataMessageHandler(dataMessageHandler.copy(node = Some(this)))
     } yield {
       node.asInstanceOf[NeutrinoNode]
     }

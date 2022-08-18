@@ -12,7 +12,7 @@ import org.bitcoins.crypto.DoubleSha256DigestBE
 import org.bitcoins.node.config.NodeAppConfig
 import org.bitcoins.node.models._
 import org.bitcoins.node.networking.peer.DataMessageHandlerState._
-import org.bitcoins.node.{NeutrinoNode, P2PLogger, PeerManager}
+import org.bitcoins.node.{Node, P2PLogger, PeerManager}
 
 import java.time.Instant
 import scala.collection.mutable
@@ -30,13 +30,13 @@ import scala.util.control.NonFatal
 case class DataMessageHandler(
     chainApi: ChainApi,
     walletCreationTimeOpt: Option[Instant],
+    node: Node,
     initialSyncDone: Option[Promise[Done]] = None,
     currentFilterBatch: Vector[CompactFilterMessage] = Vector.empty,
     filterHeaderHeightOpt: Option[Int] = None,
     filterHeightOpt: Option[Int] = None,
     syncing: Boolean = false,
     syncPeer: Option[Peer] = None,
-    node: Option[NeutrinoNode] = None,
     state: DataMessageHandlerState = HeaderSync)(implicit
     ec: ExecutionContext,
     appConfig: NodeAppConfig,
@@ -56,7 +56,7 @@ case class DataMessageHandler(
                                        syncing = false,
                                        state = HeaderSync)
 
-  def manager: PeerManager = node.get.peerManager
+  def manager: PeerManager = node.peerManager
 
   def handleDataPayload(
       payload: DataPayload,
